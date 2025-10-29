@@ -43,3 +43,6 @@ frontend/android/app/build/
 frontend/android/build/
 frontend/ios/Pods/
 frontend/ios/build/
+
+
+/settings.gradle
