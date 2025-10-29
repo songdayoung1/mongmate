@@ -32,3 +32,14 @@ logs/
 # VM crash logs
 hs_err_pid*
 replay_pid*
+
+# Frontend (React Native)
+frontend/node_modules/
+frontend/.gradle/
+frontend/.bundle/
+frontend/android/.gradle/
+frontend/android/.cxx/
+frontend/android/app/build/
+frontend/android/build/
+frontend/ios/Pods/
+frontend/ios/build/
