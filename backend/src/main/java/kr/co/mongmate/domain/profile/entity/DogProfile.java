@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.profile.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -7,34 +7,22 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import kr.co.mongmate.domain.user.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
 
 @Entity
-@Table(
-    name = "user_neighborhood",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
-    },
-    indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
-    }
-)
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
+@Table(name = "dog_profile")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class DogProfile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,20 +30,36 @@ public class UserNeighborhood {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "guardian_user_id", nullable = false)
+    private User guardianUser;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
+    @Column(name = "name", nullable = false, length = 30)
+    private String name;
 
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
+    @Column(name = "breed", length = 50)
+    private String breed;
 
-    @Builder.Default
-    @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    @Column(name = "age_years")
+    private Integer ageYears;
+
+    @Column(name = "gender_code", length = 10)
+    private String genderCode;
+
+    @Column(name = "is_neutered")
+    private Boolean isNeutered;
+
+    @Column(name = "vaccination_note", length = 200)
+    private String vaccinationNote;
+
+    @Column(name = "disposition_text", length = 100)
+    private String dispositionText;
+
+    @Column(name = "photo_url", length = 255)
+    private String photoUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }

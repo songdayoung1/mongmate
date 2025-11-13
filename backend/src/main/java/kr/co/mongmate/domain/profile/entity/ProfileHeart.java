@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.profile.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -7,7 +7,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -17,24 +16,19 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
 
 @Entity
 @Table(
-    name = "user_neighborhood",
+    name = "profile_heart",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
-    },
-    indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
+        @UniqueConstraint(name = "uk_profile_heart", columnNames = {"target_user_id", "from_user_id"})
     }
 )
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class ProfileHeart {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,19 +36,12 @@ public class UserNeighborhood {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "target_user_id", nullable = false)
+    private User targetUser;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
-
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
-
-    @Builder.Default
-    @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "from_user_id", nullable = false)
+    private User fromUser;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.walk.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -11,30 +11,24 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import kr.co.mongmate.domain.user.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
 
 @Entity
 @Table(
-    name = "user_neighborhood",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
-    },
+    name = "walk_history",
     indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
+        @Index(name = "idx_ws_user_time", columnList = "user_id, started_at")
     }
 )
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class WalkHistory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,17 +39,31 @@ public class UserNeighborhood {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
+    @Column(name = "dog_id")
+    private Long dogId;
 
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
+    @Column(name = "started_at", nullable = false, updatable = false)
+    private LocalDateTime startedAt;
 
-    @Builder.Default
-    @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    @Column(name = "ended_at")
+    private LocalDateTime endedAt;
+
+    @Column(name = "duration_sec")
+    private Integer durationSeconds;
+
+    @Column(name = "distance_m")
+    private Integer distanceMeters;
+
+    @Column(name = "route_json", columnDefinition = "json")
+    private String routeJson;
+
+    @Column(name = "note", length = 100)
+    private String note;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+
+
+
 }

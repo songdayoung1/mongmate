@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.chat.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -13,28 +13,30 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import kr.co.mongmate.domain.user.entity.User;
+import kr.co.mongmate.domain.walkpost.entity.WalkPost;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
 
 @Entity
 @Table(
-    name = "user_neighborhood",
+    name = "chat_thread",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
+        @UniqueConstraint(
+            name = "uk_thread_unique",
+            columnNames = {"post_id", "author_user_id", "participant_user_id"}
+        )
     },
     indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
+        @Index(name = "idx_ct_user", columnList = "author_user_id, participant_user_id")
     }
 )
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class ChatThread {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,19 +44,16 @@ public class UserNeighborhood {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "post_id", nullable = false)
+    private WalkPost walkPost;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "author_user_id", nullable = false)
+    private User author;
 
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
-
-    @Builder.Default
-    @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "participant_user_id", nullable = false)
+    private User participant;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

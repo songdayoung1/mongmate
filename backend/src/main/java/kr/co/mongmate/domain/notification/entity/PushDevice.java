@@ -1,8 +1,10 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.notification.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -13,28 +15,28 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import kr.co.mongmate.domain.user.entity.User;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
+
 
 @Entity
 @Table(
-    name = "user_neighborhood",
+    name = "push_device",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
+        @UniqueConstraint(name = "uk_user_token", columnNames = {"user_id", "device_token"})
     },
     indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
+        @Index(name = "idx_pd_user_active", columnList = "user_id, is_active")
     }
 )
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class PushDevice {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,12 +47,12 @@ public class UserNeighborhood {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "platform", nullable = false, length = 10)
+    private Platform platform;
 
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
+    @Column(name = "device_token", nullable = false, length = 255)
+    private String deviceToken;
 
     @Builder.Default
     @Column(name = "is_active", nullable = false)
@@ -58,4 +60,13 @@ public class UserNeighborhood {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    public enum Platform {
+        IOS,
+        ANDROID,
+        WEB
+    }
 }

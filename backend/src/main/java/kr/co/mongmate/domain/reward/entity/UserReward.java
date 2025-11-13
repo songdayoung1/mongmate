@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.reward.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -17,24 +17,22 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
 
 @Entity
 @Table(
-    name = "user_neighborhood",
+    name = "user_reward",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
+        @UniqueConstraint(name = "uk_user_reward", columnNames = {"user_id", "reward_policy_id"})
     },
     indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
+        @Index(name = "idx_ur_user", columnList = "user_id")
     }
 )
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class UserReward {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,17 +43,10 @@ public class UserNeighborhood {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "reward_policy_id", nullable = false)
+    private RewardPolicy rewardPolicy;
 
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
-
-    @Builder.Default
-    @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "awarded_at", nullable = false, updatable = false)
+    private LocalDateTime awardedAt;
 }

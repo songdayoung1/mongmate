@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.user.entity;
+package kr.co.mongmate.domain.walk.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -9,18 +9,19 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import kr.co.mongmate.domain.user.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "guardian_profile")
+@Table(name = "walk_stats")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GuardianProfile {
+public class WalkStats {
 
     @Id
     @Column(name = "user_id", nullable = false, updatable = false)
@@ -31,28 +32,17 @@ public class GuardianProfile {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "nickname", length = 30, nullable = false)
-    private String nickname;
-
-    @Column(name = "gender_code", length = 10)
-    private String genderCode;
-
-    @Column(name = "bio", length = 300)
-    private String bio;
-
-    @Column(name = "avatar_url", length = 255)
-    private String avatarUrl;
+    @Builder.Default
+    @Column(name = "total_sessions", nullable = false)
+    private Integer totalSessions = 0;
 
     @Builder.Default
-    @Column(name = "hearts_count", nullable = false)
-    private Integer heartsCount = 0;
+    @Column(name = "total_distance_m", nullable = false)
+    private Integer totalDistanceMeters = 0;
 
     @Builder.Default
-    @Column(name = "review_count", nullable = false)
-    private Integer reviewCount = 0;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "total_duration_s", nullable = false)
+    private Integer totalDurationSeconds = 0;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;

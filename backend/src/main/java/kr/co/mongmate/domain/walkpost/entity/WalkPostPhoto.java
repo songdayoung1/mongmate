@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.geo.entity;
+package kr.co.mongmate.domain.walkpost.entity;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
@@ -11,30 +11,23 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import kr.co.mongmate.domain.user.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Check;
 
 @Entity
 @Table(
-    name = "user_neighborhood",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_region", columnNames = {"user_id", "region_id"})
-    },
+    name = "walk_post_photo",
     indexes = {
-        @Index(name = "idx_user_active", columnList = "user_id, is_active")
+        @Index(name = "idx_wpp_post", columnList = "post_id, sort_order")
     }
 )
-@Check(constraints = "radius_m BETWEEN 500 AND 20000")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserNeighborhood {
+public class WalkPostPhoto {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,19 +35,15 @@ public class UserNeighborhood {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "post_id", nullable = false)
+    private WalkPost walkPost;
 
-    @Column(name = "region_id", nullable = false)
-    private Long regionId;
-
-    @Builder.Default
-    @Column(name = "radius_m", nullable = false)
-    private Integer radiusMeters = 2000;
+    @Column(name = "photo_url", length = 255, nullable = false)
+    private String photoUrl;
 
     @Builder.Default
-    @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    @Column(name = "sort_order", nullable = false)
+    private Integer sortOrder = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
