@@ -1,6 +1,7 @@
 package kr.co.mongmate.domain.notification.entity;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,8 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import kr.co.mongmate.domain.user.entity.User;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -27,9 +27,7 @@ import lombok.NoArgsConstructor;
     }
 )
 @Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification {
 
     @Id
@@ -62,6 +60,122 @@ public class Notification {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    private Notification(
+        Long id,
+        User user,
+        Type type,
+        Long refId,
+        String title,
+        String body,
+        LocalDateTime sentAt,
+        LocalDateTime readAt,
+        LocalDateTime createdAt
+    ) {
+        this.id = id;
+        assignUser(user);
+        this.type = Objects.requireNonNull(type, "type must not be null");
+        this.refId = refId;
+        this.title = title;
+        this.body = body;
+        this.sentAt = sentAt;
+        this.readAt = readAt;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+    }
+
+    public static NotificationBuilder builder() {
+        return new NotificationBuilder();
+    }
+
+    public void assignUser(User user) {
+        this.user = Objects.requireNonNull(user, "user must not be null");
+    }
+
+    public void markSent() {
+        this.sentAt = LocalDateTime.now();
+    }
+
+    public void markSent(LocalDateTime timestamp) {
+        this.sentAt = timestamp != null ? timestamp : LocalDateTime.now();
+    }
+
+    public void markRead() {
+        this.readAt = LocalDateTime.now();
+    }
+
+    public void markUnread() {
+        this.readAt = null;
+    }
+
+    public boolean isRead() {
+        return this.readAt != null;
+    }
+
+    public static final class NotificationBuilder {
+        private Long id;
+        private User user;
+        private Type type;
+        private Long refId;
+        private String title;
+        private String body;
+        private LocalDateTime sentAt;
+        private LocalDateTime readAt;
+        private LocalDateTime createdAt;
+
+        private NotificationBuilder() {
+        }
+
+        public NotificationBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public NotificationBuilder user(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public NotificationBuilder type(Type type) {
+            this.type = type;
+            return this;
+        }
+
+        public NotificationBuilder refId(Long refId) {
+            this.refId = refId;
+            return this;
+        }
+
+        public NotificationBuilder title(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public NotificationBuilder body(String body) {
+            this.body = body;
+            return this;
+        }
+
+        public NotificationBuilder sentAt(LocalDateTime sentAt) {
+            this.sentAt = sentAt;
+            return this;
+        }
+
+        public NotificationBuilder readAt(LocalDateTime readAt) {
+            this.readAt = readAt;
+            return this;
+        }
+
+        public NotificationBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public Notification build() {
+            Objects.requireNonNull(user, "user must not be null");
+            Objects.requireNonNull(type, "type must not be null");
+            return new Notification(id, user, type, refId, title, body, sentAt, readAt, createdAt);
+        }
+    }
 
     public enum Type {
         CHAT_NEW_MESSAGE,
