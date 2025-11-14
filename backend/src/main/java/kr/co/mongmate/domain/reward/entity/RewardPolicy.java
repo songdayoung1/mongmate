@@ -1,6 +1,7 @@
 package kr.co.mongmate.domain.reward.entity;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,17 +14,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import kr.co.mongmate.domain.meta.entity.Badge;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "reward_policy")
 @Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RewardPolicy {
 
     @Id
@@ -47,6 +45,94 @@ public class RewardPolicy {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    private RewardPolicy(
+        Long id,
+        String name,
+        ConditionType conditionType,
+        Integer conditionValue,
+        Badge badge,
+        LocalDateTime createdAt
+    ) {
+        this.id = id;
+        changeName(name);
+        changeCondition(conditionType, conditionValue);
+        assignBadge(badge);
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+    }
+
+    public static RewardPolicyBuilder builder() {
+        return new RewardPolicyBuilder();
+    }
+
+    public void assignBadge(Badge badge) {
+        this.badge = badge;
+    }
+
+    public void changeName(String name) {
+        this.name = Objects.requireNonNull(name, "name must not be null");
+    }
+
+    public void changeCondition(ConditionType conditionType, Integer conditionValue) {
+        this.conditionType = Objects.requireNonNull(conditionType, "conditionType must not be null");
+        this.conditionValue = conditionValue;
+    }
+
+    public void updateConditionValue(Integer conditionValue) {
+        this.conditionValue = conditionValue;
+    }
+
+    public boolean matchesCondition(ConditionType type) {
+        return this.conditionType == type;
+    }
+
+    public static final class RewardPolicyBuilder {
+        private Long id;
+        private String name;
+        private ConditionType conditionType;
+        private Integer conditionValue;
+        private Badge badge;
+        private LocalDateTime createdAt;
+
+        private RewardPolicyBuilder() {
+        }
+
+        public RewardPolicyBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public RewardPolicyBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public RewardPolicyBuilder conditionType(ConditionType conditionType) {
+            this.conditionType = conditionType;
+            return this;
+        }
+
+        public RewardPolicyBuilder conditionValue(Integer conditionValue) {
+            this.conditionValue = conditionValue;
+            return this;
+        }
+
+        public RewardPolicyBuilder badge(Badge badge) {
+            this.badge = badge;
+            return this;
+        }
+
+        public RewardPolicyBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public RewardPolicy build() {
+            Objects.requireNonNull(name, "name must not be null");
+            Objects.requireNonNull(conditionType, "conditionType must not be null");
+            return new RewardPolicy(id, name, conditionType, conditionValue, badge, createdAt);
+        }
+    }
 
     public enum ConditionType {
         TOTAL_DISTANCE,

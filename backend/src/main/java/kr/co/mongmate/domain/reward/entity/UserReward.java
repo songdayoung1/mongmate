@@ -1,6 +1,7 @@
 package kr.co.mongmate.domain.reward.entity;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,8 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import kr.co.mongmate.domain.user.entity.User;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -29,9 +29,7 @@ import lombok.NoArgsConstructor;
     }
 )
 @Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserReward {
 
     @Id
@@ -49,4 +47,76 @@ public class UserReward {
 
     @Column(name = "awarded_at", nullable = false, updatable = false)
     private LocalDateTime awardedAt;
+
+    private UserReward(
+        Long id,
+        User user,
+        RewardPolicy rewardPolicy,
+        LocalDateTime awardedAt
+    ) {
+        this.id = id;
+        assignUser(user);
+        assignRewardPolicy(rewardPolicy);
+        this.awardedAt = awardedAt != null ? awardedAt : LocalDateTime.now();
+    }
+
+    public static UserRewardBuilder builder() {
+        return new UserRewardBuilder();
+    }
+
+    public void assignUser(User user) {
+        this.user = Objects.requireNonNull(user, "user must not be null");
+    }
+
+    public void assignRewardPolicy(RewardPolicy rewardPolicy) {
+        this.rewardPolicy = Objects.requireNonNull(rewardPolicy, "rewardPolicy must not be null");
+    }
+
+    public boolean belongsTo(User candidate) {
+        return candidate != null
+            && this.user != null
+            && Objects.equals(candidate.getId(), this.user.getId());
+    }
+
+    public boolean matchesPolicy(RewardPolicy candidate) {
+        return candidate != null
+            && this.rewardPolicy != null
+            && Objects.equals(candidate.getId(), this.rewardPolicy.getId());
+    }
+
+    public static final class UserRewardBuilder {
+        private Long id;
+        private User user;
+        private RewardPolicy rewardPolicy;
+        private LocalDateTime awardedAt;
+
+        private UserRewardBuilder() {
+        }
+
+        public UserRewardBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public UserRewardBuilder user(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public UserRewardBuilder rewardPolicy(RewardPolicy rewardPolicy) {
+            this.rewardPolicy = rewardPolicy;
+            return this;
+        }
+
+        public UserRewardBuilder awardedAt(LocalDateTime awardedAt) {
+            this.awardedAt = awardedAt;
+            return this;
+        }
+
+        public UserReward build() {
+            Objects.requireNonNull(user, "user must not be null");
+            Objects.requireNonNull(rewardPolicy, "rewardPolicy must not be null");
+            return new UserReward(id, user, rewardPolicy, awardedAt);
+        }
+    }
 }
