@@ -1,18 +1,10 @@
+// ChatMessage
 package kr.co.mongmate.domain.chat.entity;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+
+import jakarta.persistence.*;
 import kr.co.mongmate.domain.user.entity.User;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,10 +12,10 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(
-    name = "chat_message",
-    indexes = {
-        @Index(name = "idx_cm_thread_time", columnList = "thread_id, sent_at")
-    }
+        name = "chat_message",
+        indexes = {
+                @Index(name = "idx_cm_thread_time", columnList = "thread_id, sent_at")
+        }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -53,12 +45,12 @@ public class ChatMessage {
     private Boolean read = false;
 
     private ChatMessage(
-        Long id,
-        ChatThread chatThread,
-        User sender,
-        String content,
-        LocalDateTime sentAt,
-        Boolean read
+            Long id,
+            ChatThread chatThread,
+            User sender,
+            String content,
+            LocalDateTime sentAt,
+            Boolean read
     ) {
         this.id = id;
         this.chatThread = Objects.requireNonNull(chatThread, "chatThread must not be null");
@@ -66,46 +58,30 @@ public class ChatMessage {
         this.content = Objects.requireNonNull(content, "content must not be null");
         this.sentAt = sentAt != null ? sentAt : LocalDateTime.now();
         this.read = read != null ? read : Boolean.FALSE;
-        this.chatThread.registerMessage(this);
     }
 
+    /**
+     *  관계 설정은 항상 builder에서 명시적 적용
+     *  이 메시지가 어느 Thread에 속하는지는 필수 도메인 정보라서,
+     *  생성 시점에 반드시 정해져 있어야 한다.
+     */
     public static ChatMessageBuilder builder() {
         return new ChatMessageBuilder();
     }
 
+    // 메세지 읽음 확인
     public void markAsRead() {
         this.read = Boolean.TRUE;
     }
 
+    /**
+     * 메시지의 소유자(발신자)가 candidate 사용자와 동일한지 여부를 반환.
+     * 채팅 UI 정렬, 읽음 처리, 권한 검증 등 도메인 판단 로직에 사용.
+     */
     public boolean isSentBy(User candidate) {
         return candidate != null
-            && this.sender != null
-            && Objects.equals(this.sender.getId(), candidate.getId());
-    }
-
-    public void assignToThread(ChatThread targetThread) {
-        Objects.requireNonNull(targetThread, "targetThread must not be null");
-
-        if (this.chatThread == targetThread) {
-            return;
-        }
-
-        if (this.chatThread != null) {
-            this.chatThread.unregisterMessage(this);
-        }
-
-        this.chatThread = targetThread;
-        targetThread.registerMessage(this);
-    }
-
-    void detachFromThread() {
-        if (this.chatThread == null) {
-            return;
-        }
-
-        ChatThread previous = this.chatThread;
-        this.chatThread = null;
-        previous.unregisterMessage(this);
+                && this.sender != null
+                && Objects.equals(this.sender.getId(), candidate.getId());
     }
 
     public static final class ChatMessageBuilder {

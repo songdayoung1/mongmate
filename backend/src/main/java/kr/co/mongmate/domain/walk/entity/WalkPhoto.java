@@ -1,6 +1,7 @@
 package kr.co.mongmate.domain.walk.entity;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -8,8 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -21,9 +21,7 @@ import lombok.NoArgsConstructor;
     }
 )
 @Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class WalkPhoto {
 
     @Id
@@ -39,4 +37,64 @@ public class WalkPhoto {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    private WalkPhoto(
+        Long id,
+        Long sessionId,
+        String photoUrl,
+        LocalDateTime createdAt
+    ) {
+        this.id = id;
+        changeSession(sessionId);
+        changePhotoUrl(photoUrl);
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+    }
+
+    public static WalkPhotoBuilder builder() {
+        return new WalkPhotoBuilder();
+    }
+
+    public void changeSession(Long sessionId) {
+        this.sessionId = Objects.requireNonNull(sessionId, "sessionId must not be null");
+    }
+
+    public void changePhotoUrl(String photoUrl) {
+        this.photoUrl = Objects.requireNonNull(photoUrl, "photoUrl must not be null");
+    }
+
+    public static final class WalkPhotoBuilder {
+        private Long id;
+        private Long sessionId;
+        private String photoUrl;
+        private LocalDateTime createdAt;
+
+        private WalkPhotoBuilder() {
+        }
+
+        public WalkPhotoBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public WalkPhotoBuilder sessionId(Long sessionId) {
+            this.sessionId = sessionId;
+            return this;
+        }
+
+        public WalkPhotoBuilder photoUrl(String photoUrl) {
+            this.photoUrl = photoUrl;
+            return this;
+        }
+
+        public WalkPhotoBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public WalkPhoto build() {
+            Objects.requireNonNull(sessionId, "sessionId must not be null");
+            Objects.requireNonNull(photoUrl, "photoUrl must not be null");
+            return new WalkPhoto(id, sessionId, photoUrl, createdAt);
+        }
+    }
 }
