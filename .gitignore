@@ -46,3 +46,5 @@ frontend/ios/build/
 
 
 /settings.gradle
+backend/.gradle/
+backend/.gradle_home/
