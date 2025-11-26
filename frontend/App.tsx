@@ -1,20 +1,23 @@
-import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import React from "react";
+import RootNavigator from "./src/navigation/RootNavigator";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useAuthStore } from "./src/store/auth";
+
+const queryClient = new QueryClient();
 
 export default function App() {
+  const hydrate = useAuthStore((s) => s.hydrate);
+
+  React.useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
   return (
-    <View style={styles.container}>
-      <Text>Hello World!zz</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <RootNavigator />
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
