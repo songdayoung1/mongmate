@@ -10,7 +10,7 @@ description = 'mongmate project for Spring Boot'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
 
@@ -35,6 +35,8 @@ dependencies {
 	// implementation 'org.springframework.kafka:spring-kafka'
 	implementation 'org.hibernate.orm:hibernate-spatial'
 	implementation 'org.locationtech.jts:jts-core'
+	implementation 'net.nurigo:sdk:4.2.4'
+	implementation fileTree(dir: 'libs', include: ['*.jar'])
 
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -54,3 +56,4 @@ tasks.named('test') {
 tasks.named('bootJar') {
 	archiveBaseName.set('mongmate')
 }
+

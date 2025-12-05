@@ -54,7 +54,7 @@ public class ChatReadState {
         ChatMessage lastReadMessage,
         LocalDateTime updatedAt
     ) {
-        this.id = id;
+        this.id = id != null ? id : ChatReadStateId.empty();
         this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
         assignThread(chatThread);
         assignUser(user);
@@ -108,7 +108,7 @@ public class ChatReadState {
             return;
         }
 
-        this.id = new ChatReadStateId(threadId, userId);
+        this.id = ChatReadStateId.of(threadId, userId);
     }
 
     public static final class ChatReadStateBuilder {
@@ -166,10 +166,10 @@ public class ChatReadState {
             Long userId = user.getId();
 
             if (threadId == null || userId == null) {
-                return null;
+                return ChatReadStateId.empty();
             }
 
-            return new ChatReadStateId(threadId, userId);
+            return ChatReadStateId.of(threadId, userId);
         }
     }
 }
