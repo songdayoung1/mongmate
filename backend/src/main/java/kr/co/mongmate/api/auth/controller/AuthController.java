@@ -1,36 +1,34 @@
 package kr.co.mongmate.api.auth.controller;
 
-
-import kr.co.mongmate.api.sms.service.SmsSenderService;
-import kr.co.mongmate.api.sms.util.SmsMessageTemplate;
-import kr.co.mongmate.api.sms.util.SmsVerificationCodeGenerator;
+import kr.co.mongmate.api.auth.dto.SendAuthCodeRequest;
+import kr.co.mongmate.api.auth.dto.VerifyAuthCodeRequest;
+import kr.co.mongmate.api.auth.dto.VerifyAuthCodeResponse;
+import kr.co.mongmate.api.auth.service.SmsAuthService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/sms")
+@RequestMapping("/api/auth")
 public class AuthController {
 
-    private final SmsSenderService smsSenderService;
+    private final SmsAuthService smsAuthService;
 
-    @GetMapping("/send")
-    public String send(@RequestParam String to) {
-
-        // 1) 인증번호 생성
-        String code = SmsVerificationCodeGenerator.generate();
-
-        // 2) 발송할 메시지 구성
-        String text = SmsMessageTemplate.verificationMessage(code);
-
-        // 3) SMS 전송
-        smsSenderService.sendSms(to, text);
-
-        // TODO: 인증번호 저장 로직 (Redis 등) — 추후 추가 가능
-        return "인증번호 발송 완료";
+    // 1) 인증번호 보내기
+    @PostMapping("/sms/send")
+    public ResponseEntity<Void> send(@RequestBody SendAuthCodeRequest request) {
+        smsAuthService.sendAuthCode(request.getPhoneNumber());
+        return ResponseEntity.ok().build();
     }
 
+    // 2) 인증번호 검증
+    @PostMapping("/sms/verify")
+    public ResponseEntity<VerifyAuthCodeResponse> verify(@RequestBody VerifyAuthCodeRequest request) {
+        boolean success = smsAuthService.verifyAuthCode(
+                request.getPhoneNumber(),
+                request.getCode()
+        );
+        return ResponseEntity.ok(new VerifyAuthCodeResponse(success));
+    }
 }
