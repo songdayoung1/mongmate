@@ -10,13 +10,13 @@ import {
   Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import BackHeader from "../../components/BackHeader";
 import LabeledField from "../../components/LabeledField";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import { useAuthStore } from "../../store/auth";
 import { useSendOtp, useVerifyOtp } from "../../hooks/auth";
+import TopHeader from "../../components/TopHeader";
 
 export default function PhoneNumberScreen() {
   const insets = useSafeAreaInsets();
@@ -47,7 +47,6 @@ export default function PhoneNumberScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
-      // console.log("????????");
 
       return;
     }
@@ -82,6 +81,15 @@ export default function PhoneNumberScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 8 : 0}
     >
+      <TopHeader
+        title="로그인 / 회원가입"
+        subtitle="휴대폰 번호로 간편하게 시작해요"
+        showBack={true}
+        backgroundColor="#0ACF83"
+        titleColor="#ffffff"
+        subtitleColor="rgba(255,255,255,0.85)"
+        style={{ borderBottomWidth: 0 }}
+      />
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -114,7 +122,7 @@ export default function PhoneNumberScreen() {
         {/* 타이틀/카피 */}
         <View style={{ alignItems: "center", gap: 6, marginTop: 20 }}>
           <Text style={{ color: "#fff", fontSize: 28, fontWeight: "900" }}>
-            멍멍메이트
+            멍메이트
           </Text>
           <Text style={{ color: "rgba(255,255,255,0.95)", fontSize: 16 }}>
             함께 걷는 즐거움
