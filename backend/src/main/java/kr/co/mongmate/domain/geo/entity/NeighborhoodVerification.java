@@ -41,7 +41,7 @@ public class NeighborhoodVerification {
     @Column(name = "region_id", nullable = false)
     private Long regionId;
 
-    @Column(name = "location", columnDefinition = "geometry(Point,4326)", nullable = false)
+    @Column(name = "location")
     private Point location;
 
     @Column(name = "verified_at", nullable = false)
