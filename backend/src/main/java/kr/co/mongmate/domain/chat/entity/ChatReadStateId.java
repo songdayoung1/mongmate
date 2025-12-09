@@ -31,6 +31,10 @@ public class ChatReadStateId implements Serializable {
         return new ChatReadStateId(threadId, userId);
     }
 
+    public static ChatReadStateId empty() {
+        return new ChatReadStateId();
+    }
+
     public static ChatReadStateId from(ChatThread chatThread, User user) {
         return new ChatReadStateId(resolveThreadId(chatThread), resolveUserId(user));
     }

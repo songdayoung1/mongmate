@@ -76,7 +76,7 @@ public class UserBadge {
         if (this.user.getId() == null || this.badge.getBadgeCode() == null) {
             return;
         }
-        this.id = new UserBadgeId(this.user.getId(), this.badge.getBadgeCode());
+        this.id = UserBadgeId.of(this.user.getId(), this.badge.getBadgeCode());
     }
 
     private UserBadgeId resolveId() {
@@ -86,7 +86,7 @@ public class UserBadge {
         if (this.user.getId() == null || this.badge.getBadgeCode() == null) {
             return null;
         }
-        return new UserBadgeId(this.user.getId(), this.badge.getBadgeCode());
+        return UserBadgeId.of(this.user.getId(), this.badge.getBadgeCode());
     }
 
     public static final class UserBadgeBuilder {

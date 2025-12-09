@@ -44,7 +44,7 @@ public class WalkPost {
     @Column(name = "deadline_at")
     private LocalDateTime deadlineAt;
 
-    @Column(name = "meet_location", columnDefinition = "geometry(Point,4326)")
+    @Column(name = "meet_location")
     private Point meetLocation;
 
     @Column(name = "meet_address", length = 200)

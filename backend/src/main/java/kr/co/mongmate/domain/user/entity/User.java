@@ -32,6 +32,10 @@ public class User {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 10)
+    private Gender gender;
+
     @Column(name = "carrier_code", length = 20)
     private String carrierCode;
 
@@ -55,6 +59,7 @@ public class User {
         Long id,
         String phoneNumber,
         LocalDate dateOfBirth,
+        Gender gender,
         String carrierCode,
         LocalDateTime termsAgreedAt,
         Boolean marketingAgreed,
@@ -65,6 +70,7 @@ public class User {
         this.id = id;
         changePhoneNumber(phoneNumber);
         this.dateOfBirth = dateOfBirth;
+        this.gender = gender;
         this.carrierCode = carrierCode;
         this.termsAgreedAt = Objects.requireNonNull(termsAgreedAt, "termsAgreedAt must not be null");
         this.marketingAgreed = marketingAgreed != null && marketingAgreed;
@@ -140,6 +146,7 @@ public class User {
         private Long id;
         private String phoneNumber;
         private LocalDate dateOfBirth;
+        private Gender gender;
         private String carrierCode;
         private LocalDateTime termsAgreedAt;
         private Boolean marketingAgreed;
@@ -162,6 +169,11 @@ public class User {
 
         public UserBuilder dateOfBirth(LocalDate dateOfBirth) {
             this.dateOfBirth = dateOfBirth;
+            return this;
+        }
+
+        public UserBuilder gender(Gender gender) {
+            this.gender = gender;
             return this;
         }
 
@@ -202,6 +214,7 @@ public class User {
                 id,
                 phoneNumber,
                 dateOfBirth,
+                gender,
                 carrierCode,
                 termsAgreedAt,
                 marketingAgreed,
@@ -217,4 +230,10 @@ public class User {
         BLOCKED,
         DELETED
     }
+
+    public enum Gender {
+        MALE,
+        FEMALE
+    }
+
 }

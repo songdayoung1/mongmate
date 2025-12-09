@@ -10,72 +10,20 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import TopHeader from "../../components/TopHeader";
-
-type PostType = "WALK" | "DOG_CAFE";
-
-type HomePost = {
-  id: string;
-  type: PostType;
-  title: string;
-  region: string;
-  deadlineText: string;
-  authorNickname: string;
-};
-
-const MOCK_POSTS: HomePost[] = [
-  {
-    id: "1",
-    type: "WALK",
-    title: "저녁 한강 산책 같이 하실 분 구해요 🐾",
-    region: "마포구 성산동",
-    deadlineText: "오늘 20:00까지",
-    authorNickname: "멍멍맘",
-  },
-  {
-    id: "2",
-    type: "DOG_CAFE",
-    title: "주말 애견카페 같이 가실 분 구해요 ☕",
-    region: "마포구 연남동",
-    deadlineText: "내일 오후까지",
-    authorNickname: "두부아빠",
-  },
-  {
-    id: "3",
-    type: "WALK",
-    title: "소형견 위주로 가볍게 동네 산책해요",
-    region: "마포구 망원동",
-    deadlineText: "이번 주 내",
-    authorNickname: "산책러버",
-  },
-  {
-    id: "4",
-    type: "WALK",
-    title: "중형견 위주로 가볍게 동네 산책해요",
-    region: "마포구 망원동",
-    deadlineText: "이번 주 내",
-    authorNickname: "산책러버",
-  },
-  {
-    id: "5",
-    type: "DOG_CAFE",
-    title: "대형견 위주로 가볍게 동네 산책해요",
-    region: "마포구 망원동",
-    deadlineText: "이번 주 내",
-    authorNickname: "산책러버",
-  },
-];
+import { usePostStore, HomePost, PostType } from "../../store/posts";
 
 type FilterTab = "ALL" | "WALK" | "DOG_CAFE";
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const posts = usePostStore((s) => s.posts);
 
   const [search, setSearch] = React.useState("");
   const [activeFilter, setActiveFilter] = React.useState<FilterTab>("ALL");
 
   // TODO: 실제 로그인된 유저 정보 / 통계로 교체
   const profile = {
-    nickname: "멍멍맘",
+    nickname: "만두",
     region: "마포구 성산동",
   };
 
@@ -85,12 +33,16 @@ export default function HomeScreen() {
   };
 
   const handlePressWrite = () => {
-    // TODO: 실제 글쓰기 화면 스택 추가되면 라우트 이름 맞춰서 수정
-    // 예: navigation.navigate("CreateWalkPost");
-    console.log("산책 글쓰기 버튼 클릭");
+    const rootNav = navigation.getParent?.("RootStack");
+    if (!rootNav) {
+      console.warn("RootStack 네비게이터를 찾지 못했습니다.");
+      return;
+    }
+
+    rootNav.navigate("CreatePost");
   };
 
-  const filteredPosts = MOCK_POSTS.filter((post) => {
+  const filteredPosts = posts.filter((post) => {
     const matchFilter =
       activeFilter === "ALL" ? true : post.type === activeFilter;
 
