@@ -7,12 +7,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import TopHeader from "../../components/TopHeader";
+import { sendSmsCode } from "../../api/auth";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -26,17 +28,11 @@ const CARRIERS = [
 ] as const;
 
 type Carrier = (typeof CARRIERS)[number];
-// 단계: 1 = 번호, 2 = 통신사, 3 = 이름, 4 = 생년월일+뒷자리
-type Step = 1 | 2 | 3 | 4;
 
 export default function SignupInfoScreen() {
   const navigation = useNavigation<Nav>();
 
-  const [step, setStep] = React.useState<Step>(1);
-
   const [phone, setPhone] = React.useState("");
-  const [phoneLocked, setPhoneLocked] = React.useState(false);
-
   const [carrier, setCarrier] = React.useState<Carrier | null>(null);
   const [carrierOpen, setCarrierOpen] = React.useState(false);
 
@@ -46,68 +42,78 @@ export default function SignupInfoScreen() {
 
   const cleanPhone = phone.replace(/\D/g, "");
 
-  const validPhone = /^01\d{8,9}$/.test(cleanPhone);
+  const validPhone = /^01\d{9}$/.test(cleanPhone);
   const validCarrier = !!carrier;
   const validName = name.trim().length > 1;
   const validBirth = /^\d{6}$/.test(birth);
   const validIdDigit = /^[1-4]$/.test(idDigit);
 
-  const currentStepValid = (() => {
-    switch (step) {
-      case 1:
-        return validPhone;
-      case 2:
-        return validCarrier;
-      case 3:
-        return validName;
-      case 4:
-        return validBirth && validIdDigit;
-      default:
-        return false;
-    }
-  })();
+  const nameInputRef = React.useRef<TextInput>(null);
+  const [nameConfirmed, setNameConfirmed] = React.useState(false);
 
-  const primaryLabel = step === 4 ? "다음 (인증번호 받기)" : "다음";
+  React.useEffect(() => {
+    setNameConfirmed(false);
+  }, [carrier]);
 
-  const handleNext = () => {
-    if (!currentStepValid) {
-      Alert.alert("확인", "현재 단계의 정보를 정확히 입력해주세요.");
-      return;
-    }
+  // ✅ 자동 노출 조건
+  const showCarrier = validPhone;
+  const showName = validPhone && validCarrier;
+  const showBirth = validPhone && validCarrier && nameConfirmed;
 
-    // TODO: 각 단계별 서버 검증을 여기에 붙이면 됨
+  // ✅ 마지막까지 유효해야 버튼 등장
+  const canRequestOtp =
+    validPhone && validCarrier && validName && validBirth && validIdDigit;
 
-    if (step === 1) {
-      // 번호 확정 → 인풋 잠금 + 통신사 단계로 이동
-      setPhoneLocked(true);
-      setStep(2);
-      return;
-    }
+  /**
+   * ✅ 번호가 "유효해지는 순간" 자동으로 통신사 리스트 오픈
+   * - 처음 유효해질 때만 열리게(prevValidPhone 비교)
+   * - carrier가 아직 없을 때만 열리게 (선택되어 있으면 굳이 다시 열 필요 X)
+   */
+  const prevValidPhoneRef = React.useRef(false);
+  React.useEffect(() => {
+    const prev = prevValidPhoneRef.current;
 
-    if (step === 2) {
-      setStep(3);
-      return;
+    // false -> true 로 바뀌는 순간
+    if (!prev && validPhone) {
+      if (!carrier) {
+        setCarrierOpen(true);
+      }
+      // UX: 번호 입력 완료 순간 키보드 내리면 리스트가 잘 보임
+      Keyboard.dismiss();
     }
 
-    if (step === 3) {
-      setStep(4);
-      return;
+    // true -> false 로 바뀌면(번호 다시 수정해서 깨짐) 드롭다운 닫기 + 선택 초기화(선택)
+    if (prev && !validPhone) {
+      setCarrierOpen(false);
+      setCarrier(null);
+      setName("");
+      setBirth("");
+      setIdDigit("");
     }
 
-    // step === 4 : 여기서는 일단 값만 확인 (나중에 AuthOtp로 이동)
-    navigation.navigate("AuthOtp", {
-      mode: "signup",
-      phone: cleanPhone,
-      carrier: carrier!,
-      name: name.trim(),
-      birth,
-      idDigit,
-    });
+    prevValidPhoneRef.current = validPhone;
+  }, [validPhone, carrier]);
 
-    // Alert.alert(
-    //   "입력 정보 확인",
-    //   `번호: ${cleanPhone}\n통신사: ${carrier}\n이름: ${name}\n생년월일: ${birth}-${idDigit}******`
-    // );
+  const handleRequestOtp = async () => {
+    if (!canRequestOtp) return;
+
+    try {
+      await sendSmsCode(cleanPhone);
+
+      navigation.navigate("AuthOtp", {
+        mode: "signup",
+        phoneNumber: cleanPhone,
+        carrier: carrier!,
+        name: name.trim(),
+        birth,
+        idDigit,
+      });
+    } catch (e) {
+      Alert.alert(
+        "오류",
+        "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
+      );
+    }
   };
 
   return (
@@ -115,74 +121,10 @@ export default function SignupInfoScreen() {
       <TopHeader title="회원가입" showBack />
 
       <View style={styles.container}>
-        {/* 1단계: 휴대폰 번호 (항상 보이지만, 2단계부터는 잠금) */}
-        <Text style={styles.label}>휴대폰 번호</Text>
-        <TextInput
-          style={[
-            styles.input,
-            phoneLocked && {
-              backgroundColor: "#E5E7EB",
-              color: "#6B7280",
-            },
-          ]}
-          placeholder="01012345678"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={(t) => !phoneLocked && setPhone(t.replace(/\D/g, ""))}
-          maxLength={11}
-          editable={!phoneLocked}
-        />
+        {/* ✅ 최종 순서(위→아래): 생년월일 → 이름 → 통신사 → 번호 → 버튼 */}
 
-        {/* 2단계: 통신사 선택 (step >= 2 에서만 보이게) */}
-        {step >= 2 && (
-          <>
-            <Text style={styles.label}>통신사</Text>
-            <TouchableOpacity
-              style={styles.dropdown}
-              activeOpacity={0.8}
-              onPress={() => setCarrierOpen((prev) => !prev)}
-            >
-              <Text
-                style={[styles.dropdownText, !carrier && { color: "#9CA3AF" }]}
-              >
-                {carrier || "통신사를 선택해주세요"}
-              </Text>
-            </TouchableOpacity>
-
-            {carrierOpen && (
-              <View style={styles.dropdownList}>
-                {CARRIERS.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setCarrier(c);
-                      setCarrierOpen(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </>
-        )}
-
-        {/* 3단계: 명의자 이름 */}
-        {step >= 3 && (
-          <>
-            <Text style={styles.label}>휴대폰 명의자 이름</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="홍길동"
-              value={name}
-              onChangeText={setName}
-            />
-          </>
-        )}
-
-        {/* 4단계: 생년월일 + 뒷자리 1 */}
-        {step >= 4 && (
+        {/* 4) 생년월일 + 뒷자리 1 */}
+        {showBirth && (
           <>
             <Text style={styles.label}>생년월일 / 뒷자리</Text>
             <View style={styles.row}>
@@ -205,21 +147,124 @@ export default function SignupInfoScreen() {
                 }
               />
             </View>
+
+            {birth.length > 0 && !validBirth && (
+              <Text style={styles.helpText}>
+                생년월일은 6자리로 입력해 주세요.
+              </Text>
+            )}
+            {idDigit.length > 0 && !validIdDigit && (
+              <Text style={styles.helpText}>
+                뒷자리는 1~4 중 하나로 입력해 주세요.
+              </Text>
+            )}
           </>
         )}
 
-        {/* 하단 버튼 */}
-        <TouchableOpacity
-          style={[
-            styles.nextButton,
-            !currentStepValid && styles.nextButtonDisabled,
-          ]}
-          disabled={!currentStepValid}
-          activeOpacity={0.9}
-          onPress={handleNext}
-        >
-          <Text style={styles.nextText}>{primaryLabel}</Text>
-        </TouchableOpacity>
+        {/* 3) 이름 */}
+        {showName && (
+          <>
+            <Text style={styles.label}>휴대폰 명의자 이름</Text>
+            <TextInput
+              ref={nameInputRef}
+              style={styles.input}
+              placeholder="홍길동"
+              value={name}
+              onChangeText={(t) => {
+                setName(t);
+                if (nameConfirmed) setNameConfirmed(false);
+              }}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (validName) setNameConfirmed(true);
+              }}
+            />
+            {!validName && name.length > 0 && (
+              <Text style={styles.helpText}>
+                이름을 2자 이상 입력해 주세요.
+              </Text>
+            )}
+
+            {/* ✅ 이름 입력 후 '다음' 버튼 */}
+            <TouchableOpacity
+              style={[
+                styles.nameNextButton,
+                !validName && styles.nameNextButtonDisabled,
+              ]}
+              disabled={!validName}
+              activeOpacity={0.9}
+              onPress={() => setNameConfirmed(true)}
+            >
+              <Text style={styles.nameNextText}>다음</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* 2) 통신사 */}
+        {showCarrier && (
+          <>
+            <Text style={styles.label}>통신사</Text>
+
+            <TouchableOpacity
+              style={styles.dropdown}
+              activeOpacity={0.8}
+              onPress={() => setCarrierOpen((prev) => !prev)}
+            >
+              <Text
+                style={[styles.dropdownText, !carrier && { color: "#9CA3AF" }]}
+              >
+                {carrier || "통신사를 선택해주세요"}
+              </Text>
+            </TouchableOpacity>
+
+            {carrierOpen && (
+              <View style={styles.dropdownList}>
+                {CARRIERS.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setCarrier(c);
+                      setCarrierOpen(false);
+
+                      // 드롭다운 닫힌 다음 렌더 후 포커스
+                      requestAnimationFrame(() => {
+                        setTimeout(() => nameInputRef.current?.focus(), 30);
+                      });
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* 1) 휴대폰 번호 (맨 아래) */}
+        <Text style={styles.label}>휴대폰 번호</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="01012345678"
+          keyboardType="phone-pad"
+          value={phone}
+          onChangeText={(t) => setPhone(t.replace(/\D/g, ""))}
+          maxLength={11}
+        />
+        {!validPhone && phone.length > 0 && (
+          <Text style={styles.helpText}>번호를 정확히 입력해 주세요.</Text>
+        )}
+
+        {/* 버튼(마지막까지 입력 완료 시에만 생성) */}
+        {canRequestOtp && (
+          <TouchableOpacity
+            style={styles.nextButton}
+            activeOpacity={0.9}
+            onPress={handleRequestOtp}
+          >
+            <Text style={styles.nextText}>인증번호 받기</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -244,7 +289,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#111827",
   },
-  // 드롭다운
+  helpText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#EF4444",
+  },
   dropdown: {
     borderRadius: 12,
     borderWidth: 1,
@@ -286,12 +335,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  nextButtonDisabled: {
-    backgroundColor: "#9CA3AF",
-  },
   nextText: {
     color: "#FFFFFF",
     fontSize: 16,
+    fontWeight: "700",
+  },
+  nameNextButton: {
+    marginTop: 12,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nameNextButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+  },
+  nameNextText: {
+    color: "#FFFFFF",
+    fontSize: 15,
     fontWeight: "700",
   },
 });

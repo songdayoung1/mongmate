@@ -32,7 +32,7 @@ export default function AuthStartScreen() {
           style={styles.secondary}
           activeOpacity={0.9}
           onPress={() =>
-            navigation.navigate("AuthOtp", { mode: "login", phone: "" })
+            navigation.navigate("AuthOtp", { mode: "login", phoneNumber: "" })
           }
         >
           <Text style={styles.secondaryText}>이미 계정이 있어요 · 로그인</Text>
