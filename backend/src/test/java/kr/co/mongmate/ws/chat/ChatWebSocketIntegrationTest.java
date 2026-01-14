@@ -2,11 +2,9 @@ package kr.co.mongmate.ws.chat;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.lang.reflect.Type;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import kr.co.mongmate.api.chat.dto.ChatMessageDto;
+import kr.co.mongmate.ws.chat.controller.ChatController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
