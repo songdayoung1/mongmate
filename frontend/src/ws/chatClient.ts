@@ -14,26 +14,48 @@ export type SendChatPayload = {
   content: string;
 };
 
-// ✅ 중요: 실기기/에뮬에서 localhost는 서버가 아님.
-// 웹=localhost OK / 폰=PC IP로 바꿔야 함.
-// const WS_URL = "http://192.168.0.10:8080/ws-chat";
 const WS_URL = "http://localhost:8080/ws-chat";
 
 let client: Client | null = null;
+let currentToken = "";
+// ✅ 최신 토큰을 가져오는 함수(재연결/토큰갱신 대응)
+let getAccessToken: (() => string) | null = null;
 
-export function ensureChatSocket(onConnected?: () => void) {
-  if (client?.connected) return client;
+/**
+ * 앱 시작 시 1번 등록해두면,
+ * ensureChatSocket()이 연결/재연결할 때마다 최신 토큰을 헤더에 실어줌.
+ */
+export function setChatTokenProvider(fn: () => string) {
+  getAccessToken = fn;
+}
+export function ensureChatSocket(token: string, onConnected?: () => void) {
+  // 토큰 갱신되면 연결 다시 잡는 게 안전함
+  const tokenChanged = token && token !== currentToken;
+
+  if (client?.connected && !tokenChanged) return client;
+
+  // 토큰이 바뀌었는데 이미 연결돼 있으면 끊고 재연결(권장)
+  if (client && tokenChanged) {
+    try {
+      client.deactivate();
+    } catch {}
+    client = null;
+  }
+
+  currentToken = token;
 
   client = new Client({
     webSocketFactory: () => new SockJS(WS_URL),
     reconnectDelay: 3000,
     debug: () => {},
+    connectHeaders: {
+      Authorization: `Bearer ${token}`,
+      // 서버가 다른 키면 여기 변경:
+      // accessToken: token,
+    },
   });
 
-  client.onConnect = () => {
-    onConnected?.();
-  };
-
+  client.onConnect = () => onConnected?.();
   client.onStompError = (frame) => {
     console.log("STOMP error:", frame.headers["message"], frame.body);
   };
