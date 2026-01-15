@@ -10,8 +10,8 @@ export default function App() {
   const hydrate = useAuthStore((s) => s.hydrate);
 
   React.useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    useAuthStore.getState().hydrate();
+  }, []);
 
   return (
     <SafeAreaProvider>

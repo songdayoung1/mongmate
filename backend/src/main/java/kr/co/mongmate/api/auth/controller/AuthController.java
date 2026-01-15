@@ -5,10 +5,13 @@ import kr.co.mongmate.api.auth.service.LoginService;
 import kr.co.mongmate.api.auth.service.SignUpService;
 import kr.co.mongmate.api.auth.service.SmsAuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
+@CrossOrigin(origins = "http://localhost:8081")
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -23,6 +26,7 @@ public class AuthController {
      */
     @PostMapping("/sms/send")
     public ResponseEntity<Void> send(@RequestBody SendAuthCodeRequest request) {
+        log.info("🔥 SMS API HIT: {}", request.getPhoneNumber());
         smsAuthService.sendAuthCode(request.getPhoneNumber());
         return ResponseEntity.ok().build();
     }

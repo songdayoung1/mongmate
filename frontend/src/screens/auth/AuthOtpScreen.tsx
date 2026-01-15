@@ -1,4 +1,3 @@
-// screens/auth/AuthOtpScreen.tsx
 import React from "react";
 import {
   View,
@@ -14,11 +13,15 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import TopHeader from "../../components/TopHeader";
+import { sendSmsCode, verifySmsCode, signup, login } from "../../api/auth";
+import { deriveDobAndGender } from "../../utils/koreanId";
+import { useAuthStore } from "../../store/auth";
+import type { AuthState } from "../../store/auth";
 
 type Nav = NativeStackNavigationProp<RootStackParamList, "AuthOtp">;
 type AuthOtpRoute = RouteProp<RootStackParamList, "AuthOtp">;
 
-const OTP_DURATION = 3 * 60; // 3분 (초 단위)
+const OTP_DURATION = 3 * 60;
 
 export default function AuthOtpScreen() {
   const navigation = useNavigation<Nav>();
@@ -26,16 +29,16 @@ export default function AuthOtpScreen() {
 
   const {
     mode,
-    phone: initialPhone,
+    phoneNumber: initialPhoneNumber,
     carrier,
     name,
     birth,
     idDigit,
   } = route.params;
 
-  // 로그인 모드: 처음엔 번호 수정 가능
-  // 회원가입 모드: 이미 이전 단계에서 번호 확정 → 수정 불가
-  const [phone, setPhone] = React.useState(initialPhone ?? "");
+  const setSession = useAuthStore((s: AuthState) => s.setSession);
+
+  const [phone, setPhone] = React.useState(initialPhoneNumber ?? "");
   const [phoneLocked, setPhoneLocked] = React.useState(mode === "signup");
 
   const [code, setCode] = React.useState("");
@@ -44,20 +47,25 @@ export default function AuthOtpScreen() {
 
   const cleanPhone = phone.replace(/\D/g, "");
   const validPhone = /^01\d{8,9}$/.test(cleanPhone);
-  const canRequestOtp = validPhone; // 타이머 상관없이, 일단 번호만 맞으면 요청 가능
+  const canRequestOtp = validPhone;
 
-  // 타이머 Effect
+  React.useEffect(() => {
+    // 회원가입에서 넘어온 경우: 첫 진입부터 3분 타이머 시작
+    if (mode === "signup") {
+      setTimer(OTP_DURATION);
+      setIsRunning(true);
+      setPhoneLocked(true);
+    }
+  }, [mode]);
+
+  // 타이머
   React.useEffect(() => {
     if (!isRunning) return;
     if (timer <= 0) {
       setIsRunning(false);
       return;
     }
-
-    const id = setInterval(() => {
-      setTimer((t) => t - 1);
-    }, 1000);
-
+    const id = setInterval(() => setTimer((t) => t - 1), 1000);
     return () => clearInterval(id);
   }, [isRunning, timer]);
 
@@ -76,63 +84,80 @@ export default function AuthOtpScreen() {
     }
 
     try {
-      // TODO: 실제 서버 호출은 나중에
-      // await fetch("http://localhost:8080/api/auth/otp/request", {...});
-
-      // 임시: 그냥 성공했다고 치고 타이머 시작
-      setPhoneLocked(true); // ✅ 번호 확정
+      await sendSmsCode(cleanPhone);
+      setPhoneLocked(true);
       setCode("");
-      setTimer(OTP_DURATION); // 3분
+      setTimer(OTP_DURATION);
       setIsRunning(true);
-
-      Alert.alert("알림", "인증번호를 발송했어요. (임시 성공 처리)");
-    } catch (e) {
-      Alert.alert("에러", "인증번호 요청 중 문제가 발생했습니다.");
+      Alert.alert("알림", "인증번호를 발송했어요.");
+    } catch (e: any) {
+      Alert.alert(
+        "에러",
+        e?.message ?? "인증번호 요청 중 문제가 발생했습니다."
+      );
     }
   };
 
   const handleVerify = async () => {
+    navigation.navigate("Main");
+
     if (code.length !== 6) {
       Alert.alert("확인", "6자리 인증번호를 입력해주세요.");
       return;
     }
-
     if (!isRunning) {
       Alert.alert("확인", "인증 유효 시간이 지났어요. 다시 요청해주세요.");
       return;
     }
 
     try {
-      // TODO: 실제 서버 verify는 나중에
-      // await verifyOtp({ phone: cleanPhone, code });
-
-      // 🔥 임시: 그냥 무조건 성공 처리
-      if (mode === "signup") {
-        Alert.alert(
-          "가입 완료",
-          `${name ?? ""}님, 회원가입이 완료되었습니다.`,
-          [
-            {
-              text: "확인",
-              onPress: () => {
-                // TODO: 여기서 실제로는 useAuthStore에 유저 저장 + 메인으로
-                navigation.navigate("Main");
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert("로그인 완료", "다시 오셨네요. 로그인되었습니다.", [
-          {
-            text: "확인",
-            onPress: () => {
-              navigation.navigate("Main");
-            },
-          },
-        ]);
+      const { success } = await verifySmsCode(cleanPhone, code);
+      console.log("success ==> ", success);
+      if (!success) {
+        Alert.alert("실패", "인증번호가 올바르지 않습니다.");
+        return;
       }
-    } catch (e) {
-      Alert.alert("에러", "인증 처리 중 문제가 발생했습니다.");
+
+      if (mode === "signup") {
+        if (!name || !birth || !idDigit) {
+          Alert.alert("에러", "회원가입 정보가 누락되었습니다.");
+          return;
+        }
+
+        const { dateOfBirth, gender } = deriveDobAndGender(birth, idDigit);
+
+        const res = await signup({
+          name,
+          dateOfBirth,
+          gender,
+          phoneNumber: cleanPhone,
+          marketingAgreed: false,
+        });
+
+        await setSession({
+          userId: res.userId,
+          phoneNumber: cleanPhone,
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+        });
+
+        return;
+      }
+      navigation.navigate("Main");
+
+      // // login 모드
+      // const res = await login(cleanPhone);
+
+      // await setSession({
+      //   userId: res.userId,
+      //   phoneNumber: cleanPhone,
+      //   accessToken: res.accessToken,
+      //   refreshToken: res.refreshToken,
+      // });
+
+      // navigation.navigate("Main");
+    } catch (e: any) {
+      Alert.alert("에러", e?.message ?? "인증 처리 중 문제가 발생했습니다.");
     }
   };
 
@@ -146,8 +171,8 @@ export default function AuthOtpScreen() {
       />
 
       <View style={styles.container}>
-        {/* ✅ 회원가입 모드: 위쪽에 최종 요약 */}
-        {mode === "signup" && (
+        {/* 회원가입 모드에서만 요약 */}
+        {/* {mode === "signup" && (
           <View style={styles.summaryBox}>
             {birth && idDigit && (
               <>
@@ -157,31 +182,27 @@ export default function AuthOtpScreen() {
                 </Text>
               </>
             )}
-
             {name && (
               <>
                 <Text style={styles.summaryLabel}>이름</Text>
                 <Text style={styles.summaryValue}>{name}</Text>
               </>
             )}
-
             {carrier && (
               <>
                 <Text style={styles.summaryLabel}>통신사</Text>
                 <Text style={styles.summaryValue}>{carrier}</Text>
               </>
             )}
-
-            {cleanPhone && (
+            {!!cleanPhone && (
               <>
                 <Text style={styles.summaryLabel}>번호</Text>
                 <Text style={styles.summaryValue}>{cleanPhone}</Text>
               </>
             )}
           </View>
-        )}
+        )} */}
 
-        {/* ✅ 번호 입력 (로그인은 처음엔 수정 가능, 회원가입은 잠김) */}
         <Text style={styles.label}>휴대폰 번호</Text>
         <TextInput
           style={[
@@ -196,7 +217,6 @@ export default function AuthOtpScreen() {
           editable={!phoneLocked}
         />
 
-        {/* ✅ 인증번호 요청 버튼 */}
         <TouchableOpacity
           style={[
             styles.requestButton,
@@ -211,7 +231,6 @@ export default function AuthOtpScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* ✅ 타이머 + 인증번호 입력 */}
         <View style={styles.otpHeader}>
           <Text style={styles.label}>인증번호</Text>
           <Text style={styles.timer}>

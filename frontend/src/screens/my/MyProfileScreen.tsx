@@ -14,7 +14,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 export default function MyPageScreen() {
-  const { isAuthed, user, logout } = useAuthStore();
+  const { isAuthed, userId, logout } = useAuthStore();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -42,9 +42,9 @@ export default function MyPageScreen() {
     navigation.navigate("MyProfile");
   };
 
-  const goLogin = () => {
-    navigation.navigate("PhoneNumber");
-  };
+  // const goLogin = () => {
+  //   navigation.navigate("PhoneNumber");
+  // };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -132,7 +132,11 @@ export default function MyPageScreen() {
           <>
             {/* 비로그인 상태에서 로그인 유도 */}
             <View style={styles.section}>
-              <TouchableOpacity style={styles.editButton} onPress={goLogin}>
+              <TouchableOpacity
+                style={styles.editButton}
+                // TODO 로그인 검증
+                // onPress={goLogin}
+              >
                 <Text style={styles.editButtonText}>로그인 하러 가기</Text>
               </TouchableOpacity>
             </View>
