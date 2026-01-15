@@ -9,12 +9,23 @@ package kr.co.mongmate.api.chat.dto;
  */
 public record ChatMessageDto(
         String roomId,
+        long seq,          // ← 여기
         String userId,
         String content,
         long timestamp
 ) {
-
-    public static ChatMessageDto of(String roomId, String userId, String content) {
-        return new ChatMessageDto(roomId, userId, content, System.currentTimeMillis());
+    public static ChatMessageDto of(
+            String roomId,
+            long seq,
+            String userId,
+            String content
+    ) {
+        return new ChatMessageDto(
+                roomId,
+                seq,
+                userId,
+                content,
+                System.currentTimeMillis()
+        );
     }
 }
