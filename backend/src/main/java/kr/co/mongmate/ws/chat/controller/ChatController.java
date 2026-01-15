@@ -2,6 +2,7 @@ package kr.co.mongmate.ws.chat.controller;
 
 import kr.co.mongmate.api.chat.dto.ChatMessageDto;
 import kr.co.mongmate.api.chat.service.ChatRoomAccessService;
+import kr.co.mongmate.domain.chat.service.ChatMessageService;
 import kr.co.mongmate.infra.chat.service.ChatRedisService;
 import kr.co.mongmate.ws.chat.dto.ChatSendRequest;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,8 @@ public class ChatController {
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatRedisService chatRedisService;
     private final ChatRoomAccessService chatRoomAccessService;
+    private final ChatMessageService chatMessageService;
+
 
     @MessageMapping("/chat.send")
     public void handleChatMessage(ChatSendRequest req, Principal principal) {
@@ -28,6 +31,9 @@ public class ChatController {
 
         // 인가(멤버 체크)
         chatRoomAccessService.assertMember(req.roomId(), userId);
+
+        // DB 영속화 추가 (실패 시 예외 -> STOMP ERROR)
+        chatMessageService.saveMessage(req.roomId(), userId, req.content());
 
         long seq = chatRedisService.nextSeq(req.roomId());
 

@@ -1,4 +1,3 @@
-// ChatMessage
 package kr.co.mongmate.domain.chat.entity;
 
 import java.time.LocalDateTime;
