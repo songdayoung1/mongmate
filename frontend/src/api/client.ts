@@ -7,7 +7,7 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  console.log("🔥 SEND URL", `${API_BASE_URL}/api/auth/sms/send`);
+  // console.log("🔥 SEND URL", `${API_BASE_URL}/api/auth/sms/send`);
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,

@@ -6,47 +6,111 @@ import {
   FlatList,
   TextInput,
   Pressable,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 
 import TopHeader from "../../components/TopHeader";
-import {
-  getMessages,
-  markRoomAsRead,
-  appendMyMessage,
-  type RoomId,
-  type ChatMessage,
-} from "../../mocks/chat";
 import type { ChatStackParamList } from "../../navigation/ChatStackNavigator";
+import {
+  ensureChatSocket,
+  subscribeRoom,
+  publishChat,
+  type IncomingChatMessage,
+} from "../../ws/chatClient";
+import { useAuthStore } from "../../store/auth";
 
 type R = RouteProp<ChatStackParamList, "ChatRoom">;
 
 const PRIMARY = "#0ACF83";
 
+type UiMessage = {
+  id: string;
+  me: boolean;
+  text: string;
+  time: string;
+  read: boolean; // 프론트 임시
+  dayLabel?: string;
+};
+
+function formatTime(ts: number) {
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+// (선택) 날짜 라벨 간단 버전
+function formatDayLabel(ts: number) {
+  const d = new Date(ts);
+  const now = new Date();
+  const same =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (same) return "오늘";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export default function ChatRoomScreen() {
   const { params } = useRoute<R>();
   const { roomId, title } = params;
+  const [socketReady, setSocketReady] = React.useState(false);
 
-  const listRef = React.useRef<FlatList<ChatMessage>>(null);
+  const session = useAuthStore((s) => s.session);
+  const myUserId = String(session?.userId ?? "0");
 
-  const [messages, setMessages] = React.useState<ChatMessage[]>(
-    getMessages(roomId as RoomId)
-  );
+  const listRef = React.useRef<FlatList<UiMessage>>(null);
+  const lastDayLabelRef = React.useRef<string>("");
+
+  const [messages, setMessages] = React.useState<UiMessage[]>([]);
   const [text, setText] = React.useState("");
 
-  // ✅ 진입 시 읽음 처리(store에 반영) + 최신 메시지 하단으로 스크롤
+  // ✅ 방 진입 시: 소켓 연결 + 구독 + (임시)상대 메시지 읽음 처리
   React.useEffect(() => {
-    markRoomAsRead(roomId as RoomId);
-    setMessages(getMessages(roomId as RoomId));
+    let unsub: null | (() => void) = null;
 
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: false });
+    ensureChatSocket(() => {
+      setSocketReady(true);
+      console.log("✅ STOMP connected");
+      const sub = subscribeRoom(String(roomId), (m: IncomingChatMessage) => {
+        console.log("📩 received:", m);
+        const dayLabel = formatDayLabel(m.timestamp);
+        const showDayLabel =
+          dayLabel !== lastDayLabelRef.current ? dayLabel : undefined;
+        if (showDayLabel) lastDayLabelRef.current = dayLabel;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${m.timestamp}-${Math.random()}`,
+            me: m.userId === myUserId,
+            text: m.content,
+            time: formatTime(m.timestamp),
+            // ✅ 서버에 읽음이 없으니: "상대 메시지는 내가 보면 읽음 처리"를 프론트 임시로
+            read: true,
+            dayLabel: showDayLabel,
+          },
+        ]);
+      });
+
+      unsub = () => sub.unsubscribe();
+
+      // 방 들어오면 맨 아래로
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+      });
+      console.log("✅ subscribed:", `/topic/chat.room.${roomId}`);
     });
-  }, [roomId]);
 
-  // ✅ 메시지 추가/변경 시에도 맨 아래 유지
+    return () => {
+      unsub?.();
+    };
+  }, [roomId, myUserId]);
+
+  // ✅ 메시지 변경 시 항상 하단 유지
   React.useEffect(() => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true });
@@ -56,9 +120,21 @@ export default function ChatRoomScreen() {
   const onSend = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
+    if (!socketReady) {
+      Alert.alert(
+        "연결 중",
+        "채팅 서버에 연결 중입니다. 잠시 후 다시 시도해주세요."
+      );
+      return;
+    }
+    // ✅ WebSocket SEND (/app/chat.send)
+    console.log("📤 send:", { roomId, userId: myUserId, content: trimmed });
+    publishChat({
+      roomId: String(roomId),
+      userId: myUserId,
+      content: trimmed,
+    });
 
-    appendMyMessage(roomId as RoomId, trimmed);
-    setMessages(getMessages(roomId as RoomId));
     setText("");
   };
 
@@ -86,10 +162,8 @@ export default function ChatRoomScreen() {
                 </Text>
 
                 <View style={styles.meta}>
-                  {/* ✅ "내가 읽었는지" 표시이므로 상대 메시지에만 읽음 노출 */}
-                  {!item.me && item.read && (
-                    <Text style={styles.read}>읽음</Text>
-                  )}
+                  {/* ⚠️ 서버 읽음이 없어서 임시 처리. REST 생기면 "상대가 내 메시지를 읽음"으로 바꿔야 함 */}
+                  {/* 예: 내 메시지에 대해 read=true일 때 "읽음" 노출로 바꾸는 게 카톡 방식 */}
                   <Text style={[styles.time, item.me && styles.timeMe]}>
                     {item.time}
                   </Text>
@@ -110,11 +184,11 @@ export default function ChatRoomScreen() {
         />
         <Pressable
           onPress={onSend}
-          disabled={!text.trim()}
+          disabled={!text.trim() || !socketReady}
           style={({ pressed }) => [
             styles.send,
-            !text.trim() && { opacity: 0.4 },
-            pressed && text.trim() ? { opacity: 0.85 } : null,
+            (!text.trim() || !socketReady) && { opacity: 0.4 },
+            pressed && text.trim() && socketReady ? { opacity: 0.85 } : null,
           ]}
         >
           <Text style={{ color: "#fff", fontWeight: "700" }}>전송</Text>
@@ -155,18 +229,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 6,
 
-    // ✅ iOS shadow
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
-
-    // ✅ Android shadow
     elevation: 1,
   },
 
   other: {
-    backgroundColor: "#F9FAFB", // ✅ 기존 #F3F4F6보다 더 "화이트에 가까운" 톤인데
-    borderWidth: 1, // ✅ 테두리로 확실히 구분
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
     borderColor: "#E5E7EB",
     borderTopLeftRadius: 6,
   },
@@ -179,7 +250,6 @@ const styles = StyleSheet.create({
   text: { fontSize: 15, color: "#111827" },
 
   meta: { flexDirection: "row", gap: 6, alignSelf: "flex-end" },
-  read: { fontSize: 11, color: "#6B7280", fontWeight: "700" },
   time: { fontSize: 11, color: "#6B7280" },
   timeMe: { color: "rgba(255,255,255,0.85)" },
 

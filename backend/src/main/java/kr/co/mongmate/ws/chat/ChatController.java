@@ -27,8 +27,11 @@ public class ChatController {
     /**
      * 클라이언트가 /app/chat.send 로 메시지를 보내면 여기로 들어옴
      */
+
     @MessageMapping("/chat.send")
     public void handleChatMessage(ChatSendRequest req) {
+        log.info("✅ WS handler entered: roomId={}, userId={}, content={}", req.roomId(), req.userId(), req.content());
+
         log.debug("Received message: roomId={}, userId={}, content={}",
                 req.roomId(), req.userId(), req.content());
 
@@ -44,6 +47,8 @@ public class ChatController {
 
         // 해당 방을 구독 중인 모든 클라이언트에게 브로드캐스트
         String destination = "/topic/chat.room." + message.roomId();
+        log.info("📢 broadcast to /topic/chat.room.{}", req.roomId());
+
         messagingTemplate.convertAndSend(destination, message);
     }
 

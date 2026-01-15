@@ -49,6 +49,15 @@ export default function AuthOtpScreen() {
   const validPhone = /^01\d{8,9}$/.test(cleanPhone);
   const canRequestOtp = validPhone;
 
+  React.useEffect(() => {
+    // 회원가입에서 넘어온 경우: 첫 진입부터 3분 타이머 시작
+    if (mode === "signup") {
+      setTimer(OTP_DURATION);
+      setIsRunning(true);
+      setPhoneLocked(true);
+    }
+  }, [mode]);
+
   // 타이머
   React.useEffect(() => {
     if (!isRunning) return;
@@ -90,6 +99,8 @@ export default function AuthOtpScreen() {
   };
 
   const handleVerify = async () => {
+    navigation.navigate("Main");
+
     if (code.length !== 6) {
       Alert.alert("확인", "6자리 인증번호를 입력해주세요.");
       return;
@@ -101,6 +112,7 @@ export default function AuthOtpScreen() {
 
     try {
       const { success } = await verifySmsCode(cleanPhone, code);
+      console.log("success ==> ", success);
       if (!success) {
         Alert.alert("실패", "인증번호가 올바르지 않습니다.");
         return;
@@ -129,9 +141,9 @@ export default function AuthOtpScreen() {
           refreshToken: res.refreshToken,
         });
 
-        navigation.navigate("Main");
         return;
       }
+      navigation.navigate("Main");
 
       // // login 모드
       // const res = await login(cleanPhone);
@@ -160,7 +172,7 @@ export default function AuthOtpScreen() {
 
       <View style={styles.container}>
         {/* 회원가입 모드에서만 요약 */}
-        {mode === "signup" && (
+        {/* {mode === "signup" && (
           <View style={styles.summaryBox}>
             {birth && idDigit && (
               <>
@@ -189,7 +201,7 @@ export default function AuthOtpScreen() {
               </>
             )}
           </View>
-        )}
+        )} */}
 
         <Text style={styles.label}>휴대폰 번호</Text>
         <TextInput

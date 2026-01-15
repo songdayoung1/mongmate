@@ -1,4 +1,3 @@
-// src/api/auth.ts
 import { apiFetch } from "./client";
 
 export async function sendSmsCode(phoneNumber: string) {
