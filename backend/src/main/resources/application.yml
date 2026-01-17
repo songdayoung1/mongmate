@@ -30,3 +30,8 @@ solapi:
 
 jwt:
   secret: ${JWT_SECRET_BASE64}
+logging:
+  level:
+    org.springframework.web.socket: DEBUG
+    org.springframework.messaging: DEBUG
+    org.springframework.security: DEBUG

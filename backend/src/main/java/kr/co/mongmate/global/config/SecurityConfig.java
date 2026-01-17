@@ -19,6 +19,9 @@ public class SecurityConfig {
                         // ✅ 모든 OPTIONS(preflight) 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // ✅ SockJS handshake/info 포함 전부 허용
+                        .requestMatchers("/ws-chat/**").permitAll()
+
                         // ✅ swagger
                         .requestMatchers(
                                 "/swagger-ui/**",

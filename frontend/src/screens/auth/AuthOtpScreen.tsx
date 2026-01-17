@@ -140,7 +140,7 @@ export default function AuthOtpScreen() {
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
         });
-
+        console.log("가입 후 토큰:", res.accessToken);
         return;
       }
       navigation.navigate("Main");

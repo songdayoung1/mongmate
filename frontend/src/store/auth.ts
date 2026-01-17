@@ -1,6 +1,7 @@
 // src/store/auth.ts
 import { create } from "zustand";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { persistStorage } from "./persisStorage";
 
 const AUTH_KEY = "mongmate_auth_session";
 
@@ -19,70 +20,64 @@ export type AuthState = {
     phoneNumber: string;
     accessToken: string;
     refreshToken: string;
-  }) => Promise<void>;
+  }) => void;
 
-  logout: () => Promise<void>;
-  hydrate: () => Promise<void>;
+  logout: () => void;
+  setHydrated: (v: boolean) => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
-  hydrated: false,
-  isAuthed: false,
-
-  userId: null,
-  phoneNumber: null,
-
-  accessToken: null,
-  refreshToken: null,
-
-  setSession: async ({ userId, phoneNumber, accessToken, refreshToken }) => {
-    const session = { userId, phoneNumber, accessToken, refreshToken };
-    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(session));
-    set({
-      hydrated: true,
-      isAuthed: true,
-      userId,
-      phoneNumber,
-      accessToken,
-      refreshToken,
-    });
-  },
-
-  logout: async () => {
-    await AsyncStorage.removeItem(AUTH_KEY);
-    set({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      hydrated: false,
       isAuthed: false,
+
       userId: null,
       phoneNumber: null,
+
       accessToken: null,
       refreshToken: null,
-    });
-  },
 
-  hydrate: async () => {
-    try {
-      const raw = await AsyncStorage.getItem(AUTH_KEY);
-      if (!raw) {
-        set({ hydrated: true, isAuthed: false });
-        return;
-      }
-      const session = JSON.parse(raw) as {
-        userId: number;
-        phoneNumber: string;
-        accessToken: string;
-        refreshToken: string;
-      };
+      setHydrated: (v) => set({ hydrated: v }),
 
-      set({
-        hydrated: true,
-        isAuthed: true,
-        userId: session.userId,
-        phoneNumber: session.phoneNumber,
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-      });
-    } catch {
-      set({ hydrated: true, isAuthed: false });
+      setSession: ({ userId, phoneNumber, accessToken, refreshToken }) => {
+        set({
+          isAuthed: true,
+          userId,
+          phoneNumber,
+          accessToken,
+          refreshToken,
+        });
+      },
+
+      logout: () => {
+        set({
+          isAuthed: false,
+          userId: null,
+          phoneNumber: null,
+          accessToken: null,
+          refreshToken: null,
+        });
+      },
+    }),
+    {
+      name: AUTH_KEY,
+      storage: createJSONStorage(() => persistStorage),
+
+      // ✅ 새로고침/재실행 시 복원 완료 플래그
+      onRehydrateStorage: () => (state, error) => {
+        // 에러가 나도 앱이 멈추지 않게
+        state?.setHydrated(true);
+      },
+
+      // ✅ 저장할 값만 저장 (hydrated 같은 건 저장 안 함)
+      partialize: (s) => ({
+        isAuthed: s.isAuthed,
+        userId: s.userId,
+        phoneNumber: s.phoneNumber,
+        accessToken: s.accessToken,
+        refreshToken: s.refreshToken,
+      }),
     }
-  },
-}));
+  )
+);
