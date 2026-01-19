@@ -31,7 +31,7 @@ type UiMessage = {
   me: boolean;
   text: string;
   time: string;
-  read: boolean; // 프론트 임시
+  read: boolean;
   dayLabel?: string;
 };
 
@@ -42,7 +42,6 @@ function formatTime(ts: number) {
   return `${hh}:${mm}`;
 }
 
-// (선택) 날짜 라벨 간단 버전
 function formatDayLabel(ts: number) {
   const d = new Date(ts);
   const now = new Date();
@@ -57,78 +56,85 @@ function formatDayLabel(ts: number) {
 export default function ChatRoomScreen() {
   const { params } = useRoute<R>();
   const { roomId, title } = params;
-  const [socketReady, setSocketReady] = React.useState(false);
 
-  const session = useAuthStore((s) => s.session);
-  const myUserId = String(session?.userId ?? "0");
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const myUserId = String(useAuthStore((s) => s.userId ?? 0)); // ✅ 0으로 통일
+
+  const [socketReady, setSocketReady] = React.useState(false);
+  const [messages, setMessages] = React.useState<UiMessage[]>([]);
+  const [text, setText] = React.useState("");
 
   const listRef = React.useRef<FlatList<UiMessage>>(null);
   const lastDayLabelRef = React.useRef<string>("");
 
-  const [messages, setMessages] = React.useState<UiMessage[]>([]);
-  const [text, setText] = React.useState("");
-
-  // ✅ 방 진입 시: 소켓 연결 + 구독 + (임시)상대 메시지 읽음 처리
   React.useEffect(() => {
+    if (!hydrated) return;
+
     let unsub: null | (() => void) = null;
+    let cancelled = false;
 
-    ensureChatSocket(() => {
-      setSocketReady(true);
-      console.log("✅ STOMP connected");
-      const sub = subscribeRoom(String(roomId), (m: IncomingChatMessage) => {
-        console.log("📩 received:", m);
-        const dayLabel = formatDayLabel(m.timestamp);
-        const showDayLabel =
-          dayLabel !== lastDayLabelRef.current ? dayLabel : undefined;
-        if (showDayLabel) lastDayLabelRef.current = dayLabel;
+    (async () => {
+      try {
+        // ✅ 토큰은 chatClient 내부에서 store -> storage로 알아서 가져옴
+        await ensureChatSocket(() => {
+          if (cancelled) return;
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `${m.timestamp}-${Math.random()}`,
-            me: m.userId === myUserId,
-            text: m.content,
-            time: formatTime(m.timestamp),
-            // ✅ 서버에 읽음이 없으니: "상대 메시지는 내가 보면 읽음 처리"를 프론트 임시로
-            read: true,
-            dayLabel: showDayLabel,
-          },
-        ]);
-      });
+          setSocketReady(true);
+          console.log("✅ STOMP connected");
 
-      unsub = () => sub.unsubscribe();
+          const sub = subscribeRoom(
+            String(roomId),
+            (m: IncomingChatMessage) => {
+              const dayLabel = formatDayLabel(m.timestamp);
+              const showDayLabel =
+                dayLabel !== lastDayLabelRef.current ? dayLabel : undefined;
+              if (showDayLabel) lastDayLabelRef.current = dayLabel;
 
-      // 방 들어오면 맨 아래로
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToEnd({ animated: false });
-      });
-      console.log("✅ subscribed:", `/topic/chat.room.${roomId}`);
-    });
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `${m.timestamp}-${Math.random()}`,
+                  me: m.userId === myUserId,
+                  text: m.content,
+                  time: formatTime(m.timestamp),
+                  read: true,
+                  dayLabel: showDayLabel,
+                },
+              ]);
+
+              requestAnimationFrame(() => {
+                listRef.current?.scrollToEnd({ animated: true });
+              });
+            },
+          );
+
+          unsub = () => sub.unsubscribe();
+          console.log("✅ subscribed:", `/topic/chat.room.${roomId}`);
+        });
+      } catch (e: any) {
+        console.log("❌ 채팅 연결 실패:", e?.message ?? e);
+        Alert.alert("채팅 연결 실패", "로그인 상태를 확인해주세요.");
+      }
+    })();
 
     return () => {
+      cancelled = true;
       unsub?.();
     };
-  }, [roomId, myUserId]);
-
-  // ✅ 메시지 변경 시 항상 하단 유지
-  React.useEffect(() => {
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    });
-  }, [messages.length]);
+  }, [hydrated, roomId, myUserId]);
 
   const onSend = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
+
     if (!socketReady) {
       Alert.alert(
         "연결 중",
-        "채팅 서버에 연결 중입니다. 잠시 후 다시 시도해주세요."
+        "채팅 서버에 연결 중입니다. 잠시 후 다시 시도해주세요.",
       );
       return;
     }
-    // ✅ WebSocket SEND (/app/chat.send)
-    console.log("📤 send:", { roomId, userId: myUserId, content: trimmed });
+
     publishChat({
       roomId: String(roomId),
       userId: myUserId,
@@ -162,8 +168,6 @@ export default function ChatRoomScreen() {
                 </Text>
 
                 <View style={styles.meta}>
-                  {/* ⚠️ 서버 읽음이 없어서 임시 처리. REST 생기면 "상대가 내 메시지를 읽음"으로 바꿔야 함 */}
-                  {/* 예: 내 메시지에 대해 read=true일 때 "읽음" 노출로 바꾸는 게 카톡 방식 */}
                   <Text style={[styles.time, item.me && styles.timeMe]}>
                     {item.time}
                   </Text>
@@ -200,13 +204,7 @@ export default function ChatRoomScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
-
-  list: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 10,
-    gap: 10,
-  },
+  list: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, gap: 10 },
 
   dayLine: {
     alignSelf: "center",
@@ -228,7 +226,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 6,
-
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },

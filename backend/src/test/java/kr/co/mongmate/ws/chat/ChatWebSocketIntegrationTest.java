@@ -25,7 +25,7 @@ class ChatWebSocketIntegrationTest {
 
     @Test
     void sendMessage_should_be_saved_to_redis() throws Exception {
-        String roomId = "it-room-1";
+        String roomId = "it-1";
         String key = "chat:" + roomId + ":messages";
         redisTemplate.delete(key);
 

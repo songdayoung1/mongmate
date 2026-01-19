@@ -22,7 +22,7 @@ class ChatRedisServiceTest {
 
     @Test
     void saveMessage_should_push_to_redis_list() {
-        String roomId = "test-room-2";
+        String roomId = "test-2";
         String key = "chat:" + roomId + ":messages";
 
         redisTemplate.delete(key);

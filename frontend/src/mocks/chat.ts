@@ -1,4 +1,4 @@
-export type RoomId = "room-1" | "room-2" | "room-3";
+export type RoomId = "1" | "2" | "3";
 
 export type ChatRoom = {
   id: RoomId;
@@ -18,19 +18,19 @@ export type ChatMessage = {
 
 export const chatRooms: ChatRoom[] = [
   {
-    id: "room-1",
-    title: "코코 보호자",
+    id: "1",
+    title: "테스트방",
     avatarUrl:
       "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200&h=200&fit=crop",
   },
   {
-    id: "room-2",
+    id: "2",
     title: "몽이 아빠",
     avatarUrl:
       "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=200&h=200&fit=crop",
   },
   {
-    id: "room-3",
+    id: "3",
     title: "동네 산책 모임",
     avatarUrl:
       "https://images.unsplash.com/photo-1552053831-71594a27632d?w=200&h=200&fit=crop",
@@ -39,10 +39,10 @@ export const chatRooms: ChatRoom[] = [
 
 // ✅ "프론트-only store" (나중에 API로 교체하면 됨)
 let messagesStore: Record<RoomId, ChatMessage[]> = {
-  "room-1": [
+  "1": [
     {
       id: "r1-1",
-      roomId: "room-1",
+      roomId: "1",
       me: false,
       text: "안녕하세요! 코코랑 산책 메이트 구하시나요?",
       time: "10:01",
@@ -51,7 +51,7 @@ let messagesStore: Record<RoomId, ChatMessage[]> = {
     },
     {
       id: "r1-2",
-      roomId: "room-1",
+      roomId: "1",
       me: true,
       text: "네 😊 오늘 저녁 가능해요!",
       time: "10:02",
@@ -59,7 +59,7 @@ let messagesStore: Record<RoomId, ChatMessage[]> = {
     },
     {
       id: "r1-3",
-      roomId: "room-1",
+      roomId: "1",
       me: false,
       text: "좋아요! 7시 한강공원 어때요?",
       time: "10:03",
@@ -67,10 +67,10 @@ let messagesStore: Record<RoomId, ChatMessage[]> = {
     },
   ],
 
-  "room-2": [
+  "2": [
     {
       id: "r2-1",
-      roomId: "room-2",
+      roomId: "2",
       me: false,
       text: "몽이랑 같이 산책 가능할까요?",
       time: "19:20",
@@ -79,10 +79,10 @@ let messagesStore: Record<RoomId, ChatMessage[]> = {
     },
   ],
 
-  "room-3": [
+  "3": [
     {
       id: "r3-1",
-      roomId: "room-3",
+      roomId: "3",
       me: false,
       text: "이번 주말 단체 산책 인원 체크합니다!",
       time: "21:05",
@@ -91,7 +91,7 @@ let messagesStore: Record<RoomId, ChatMessage[]> = {
     },
     {
       id: "r3-2",
-      roomId: "room-3",
+      roomId: "3",
       me: false,
       text: "참여하실 분은 '참여'라고 남겨주세요!",
       time: "21:06",
