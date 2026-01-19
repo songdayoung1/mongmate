@@ -10,6 +10,10 @@ const queryClient = new QueryClient();
 export default function App() {
   const hydrated = useAuthStore((s) => s.hydrated);
 
+  React.useEffect(() => {
+    useAuthStore.getState().init();
+  }, []);
+
   if (!hydrated) {
     return (
       <SafeAreaProvider>

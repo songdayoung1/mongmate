@@ -57,7 +57,8 @@ export default function ChatRoomScreen() {
   const { params } = useRoute<R>();
   const { roomId, title } = params;
 
-  const myUserId = String(useAuthStore((s) => s.userId ?? "0"));
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const myUserId = String(useAuthStore((s) => s.userId ?? 0)); // ✅ 0으로 통일
 
   const [socketReady, setSocketReady] = React.useState(false);
   const [messages, setMessages] = React.useState<UiMessage[]>([]);
@@ -65,54 +66,62 @@ export default function ChatRoomScreen() {
 
   const listRef = React.useRef<FlatList<UiMessage>>(null);
   const lastDayLabelRef = React.useRef<string>("");
-  const hydrated = useAuthStore((s) => s.hydrated);
-  const token = useAuthStore((s) => s.accessToken);
 
   React.useEffect(() => {
     if (!hydrated) return;
 
-    if (!token) {
-      console.log("채팅 연결 스킵: token 없음");
-      return;
-    }
-
     let unsub: null | (() => void) = null;
+    let cancelled = false;
 
-    ensureChatSocket(token, () => {
-      setSocketReady(true);
-      console.log("✅ STOMP connected");
+    (async () => {
+      try {
+        // ✅ 토큰은 chatClient 내부에서 store -> storage로 알아서 가져옴
+        await ensureChatSocket(() => {
+          if (cancelled) return;
 
-      const sub = subscribeRoom(String(roomId), (m: IncomingChatMessage) => {
-        const dayLabel = formatDayLabel(m.timestamp);
-        const showDayLabel =
-          dayLabel !== lastDayLabelRef.current ? dayLabel : undefined;
-        if (showDayLabel) lastDayLabelRef.current = dayLabel;
+          setSocketReady(true);
+          console.log("✅ STOMP connected");
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `${m.timestamp}-${Math.random()}`,
-            me: m.userId === myUserId,
-            text: m.content,
-            time: formatTime(m.timestamp),
-            read: true,
-            dayLabel: showDayLabel,
-          },
-        ]);
+          const sub = subscribeRoom(
+            String(roomId),
+            (m: IncomingChatMessage) => {
+              const dayLabel = formatDayLabel(m.timestamp);
+              const showDayLabel =
+                dayLabel !== lastDayLabelRef.current ? dayLabel : undefined;
+              if (showDayLabel) lastDayLabelRef.current = dayLabel;
 
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd({ animated: true });
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `${m.timestamp}-${Math.random()}`,
+                  me: m.userId === myUserId,
+                  text: m.content,
+                  time: formatTime(m.timestamp),
+                  read: true,
+                  dayLabel: showDayLabel,
+                },
+              ]);
+
+              requestAnimationFrame(() => {
+                listRef.current?.scrollToEnd({ animated: true });
+              });
+            },
+          );
+
+          unsub = () => sub.unsubscribe();
+          console.log("✅ subscribed:", `/topic/chat.room.${roomId}`);
         });
-      });
-
-      unsub = () => sub.unsubscribe();
-      console.log("✅ subscribed:", `/topic/chat.room.${roomId}`);
-    });
+      } catch (e: any) {
+        console.log("❌ 채팅 연결 실패:", e?.message ?? e);
+        Alert.alert("채팅 연결 실패", "로그인 상태를 확인해주세요.");
+      }
+    })();
 
     return () => {
+      cancelled = true;
       unsub?.();
     };
-  }, [hydrated, token, roomId, myUserId]);
+  }, [hydrated, roomId, myUserId]);
 
   const onSend = () => {
     const trimmed = text.trim();
@@ -121,7 +130,7 @@ export default function ChatRoomScreen() {
     if (!socketReady) {
       Alert.alert(
         "연결 중",
-        "채팅 서버에 연결 중입니다. 잠시 후 다시 시도해주세요."
+        "채팅 서버에 연결 중입니다. 잠시 후 다시 시도해주세요.",
       );
       return;
     }

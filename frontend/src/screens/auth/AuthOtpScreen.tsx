@@ -23,6 +23,7 @@ type AuthOtpRoute = RouteProp<RootStackParamList, "AuthOtp">;
 
 const OTP_DURATION = 3 * 60;
 
+const { setTokens } = useAuthStore.getState();
 export default function AuthOtpScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<AuthOtpRoute>();
@@ -93,7 +94,7 @@ export default function AuthOtpScreen() {
     } catch (e: any) {
       Alert.alert(
         "에러",
-        e?.message ?? "인증번호 요청 중 문제가 발생했습니다."
+        e?.message ?? "인증번호 요청 중 문제가 발생했습니다.",
       );
     }
   };
@@ -141,6 +142,7 @@ export default function AuthOtpScreen() {
           refreshToken: res.refreshToken,
         });
         console.log("가입 후 토큰:", res.accessToken);
+        await setTokens(res.accessToken, res.refreshToken);
         return;
       }
       navigation.navigate("Main");

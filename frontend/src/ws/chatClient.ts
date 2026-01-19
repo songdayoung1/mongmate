@@ -1,5 +1,7 @@
 import { Client, IMessage, StompSubscription } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import { tokenStorage } from "../lib/tokenStorage";
+import { useAuthStore } from "../store/auth";
 
 export type IncomingChatMessage = {
   roomId: string;
@@ -19,22 +21,38 @@ const WS_URL = "http://localhost:8080/ws-chat";
 let client: Client | null = null;
 let currentToken = "";
 
-// ✅ 연결 상태를 외부에서도 안정적으로 판단하기 위해
+// ✅ 연결 상태
 export function isChatConnected() {
   return !!client?.connected;
 }
 
-export function ensureChatSocket(token: string, onConnected?: () => void) {
+// ✅ 토큰을 내부에서 읽어서 연결
+export async function ensureChatSocket(onConnected?: () => void) {
+  // 1) store
+  let token = useAuthStore.getState().accessToken;
+
+  // 2) storage fallback
+  if (!token) {
+    token = (await tokenStorage.getAccessToken()) ?? null;
+
+    // storage에 있으면 store도 동기화(선택)
+    if (token) {
+      useAuthStore
+        .getState()
+        .setTokens(token)
+        .catch(() => {});
+    }
+  }
+
   if (!token) throw new Error("채팅 연결 실패: accessToken이 비어있습니다.");
 
-  // 토큰이 바뀌었으면 기존 연결 끊고 재연결
   const tokenChanged = token !== currentToken;
 
   if (client?.connected && !tokenChanged) return client;
 
   if (client && tokenChanged) {
     try {
-      client.deactivate();
+      await client.deactivate();
     } catch {}
     client = null;
   }
@@ -46,7 +64,7 @@ export function ensureChatSocket(token: string, onConnected?: () => void) {
     reconnectDelay: 3000,
     debug: () => {},
 
-    // ✅ CONNECT 프레임에만 실려도 백엔드가 세션에 저장함
+    // ✅ STOMP CONNECT 프레임에 토큰 전달
     connectHeaders: {
       Authorization: `Bearer ${token}`,
     },
@@ -71,7 +89,7 @@ export function ensureChatSocket(token: string, onConnected?: () => void) {
 
 export function subscribeRoom(
   roomId: string,
-  onMessage: (m: IncomingChatMessage) => void
+  onMessage: (m: IncomingChatMessage) => void,
 ): StompSubscription {
   if (!client) throw new Error("STOMP client is not initialized");
   if (!client.connected) throw new Error("STOMP client is not connected");
@@ -94,10 +112,19 @@ export function publishChat(payload: SendChatPayload) {
   client.publish({
     destination: "/app/chat.send",
     body: JSON.stringify(payload),
-
-    // ✅ 서버가 혹시 SEND에서도 Principal 확인/재검증하는 로직이 남아있을 때를 대비(안전장치)
     headers: {
+      // ✅ SEND에서도 대비
       Authorization: `Bearer ${currentToken}`,
     },
   });
+}
+
+// (선택) 화면 unmount 시 정리하고 싶으면
+export async function disconnectChatSocket() {
+  if (!client) return;
+  try {
+    await client.deactivate();
+  } catch {}
+  client = null;
+  currentToken = "";
 }
