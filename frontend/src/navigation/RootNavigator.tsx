@@ -9,6 +9,7 @@ import AuthStartScreen from "../screens/auth/AuthStartScreen";
 import SignupInfoScreen from "../screens/auth/SignupInfoScreen";
 import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
 import { useAuthStore } from "../store/auth";
+import PostDetailScreen from "../screens/home/PostDetailScreen";
 
 export type RootStackParamList = {
   Main: undefined;
@@ -72,6 +73,51 @@ export default function RootNavigator() {
               <Stack.Screen name="AuthOtp" component={AuthOtpScreen} />
             </>
           )}
+          {/* 1. 인증 플로우 */}
+          <Stack.Screen name="AuthStart" component={AuthStartScreen} />
+          <Stack.Screen name="SignupInfo" component={SignupInfoScreen} />
+
+          {/* 3단계에서 구현할 OTP */}
+
+          <Stack.Screen name="AuthOtp" component={AuthOtpScreen} />
+
+          <Stack.Screen
+            name="Main"
+            component={MainTabs}
+            options={{ headerShown: false }}
+          />
+
+          {/* <Stack.Screen
+            name="PhoneNumber"
+            component={PhoneNumberScreen}
+            options={{
+              headerShown: false,
+            }}
+          /> */}
+
+          <Stack.Screen
+            name="MyProfile"
+            component={MyProfileScreen}
+            options={{
+              title: "내 프로필",
+            }}
+          />
+
+          <Stack.Screen
+            name="CreatePost"
+            component={CreatePostScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="PostDetail"
+            component={PostDetailScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
         </Stack.Navigator>
       </KeyboardDismissWrapper>
     </NavigationContainer>
