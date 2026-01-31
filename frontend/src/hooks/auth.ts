@@ -1,27 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { sendOtp, verifyOtp } from "../api/auth";
 import { useAuthStore } from "../store/auth";
 
-export function useSendOtp() {
-  return useMutation({
-    mutationFn: (phone: string) => sendOtp(phone),
-  });
-}
-
-export function useVerifyOtp() {
-  const loginWithTokens = useAuthStore((s) => s.loginWithTokens);
-  return useMutation({
-    mutationFn: ({ phone, code }: { phone: string; code: string }) =>
-      verifyOtp(phone, code),
-    onSuccess: async (res) => {
-      await loginWithTokens({
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-        me: res.user,
-      });
-    },
-  });
-}
+// 현재 프로젝트 인증 플로우는 screens/auth/*에서 직접 API를 호출하고
+// 성공 시 store의 setSession/setTokens를 호출하는 구조입니다.
+// hooks는 최소한 로그아웃 등 공용 동작만 제공합니다.
 
 export function useLogout() {
   const logout = useAuthStore((s) => s.logout);

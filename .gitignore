@@ -14,6 +14,13 @@
 .gradle/
 /mvnw
 /mvnw.cmd
+**/.gradle-cache/
+**/wrapper/dists/
+
+# Gradle download temporary files
+**/*.zip.part
+**/*.zip.lck
+
 
 # Logs
 *.log
@@ -46,3 +53,5 @@ frontend/ios/build/
 
 
 /settings.gradle
+backend/.gradle/
+backend/.gradle_home/

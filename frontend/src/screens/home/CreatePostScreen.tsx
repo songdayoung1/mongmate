@@ -54,6 +54,7 @@ export default function CreatePostScreen() {
         onPress: () => navigation.goBack(),
       },
     ]);
+    navigation.goBack();
   };
 
   return (

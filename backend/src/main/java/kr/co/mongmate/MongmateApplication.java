@@ -1,4 +1,4 @@
-package kr.co.mongmate.api;
+package kr.co.mongmate;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

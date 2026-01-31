@@ -10,6 +10,7 @@ import AuthStartScreen from "../screens/auth/AuthStartScreen";
 import SignupInfoScreen from "../screens/auth/SignupInfoScreen";
 import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
 import { useAuthStore } from "../store/auth";
+import PostDetailScreen from "../screens/home/PostDetailScreen";
 
 export type RootStackParamList = {
   Main: undefined;
@@ -21,12 +22,13 @@ export type RootStackParamList = {
   SignupInfo: undefined;
   AuthOtp: {
     mode: "signup" | "login";
-    phone: string;
-    carrier?: string;
+    phoneNumber: string;
+    carrier?: string; // (백엔드엔 없지만 UI용)
     name?: string;
-    birth?: string;
-    idDigit?: string;
+    birth?: string; // "970207"
+    idDigit?: string; // "1"
   };
+  PostDetail: { postId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -44,19 +46,18 @@ const theme = {
 };
 
 export default function RootNavigator() {
-  // const isLoggedIn = useAuthStore((s) => !!s.user);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const isAuthed = useAuthStore((s) => s.isAuthed);
+  if (!hydrated) return null;
 
   return (
     <NavigationContainer theme={theme}>
       <KeyboardDismissWrapper>
         <Stack.Navigator
           id="RootStack"
-          initialRouteName="AuthStart" // 임시
-          // {isLoggedIn ? "Main" : "AuthStart"} // 로그인 여부에 따라 분기
-          screenOptions={{
-            headerShown: false,
-            headerTitleAlign: "center",
-          }}
+          // initialRouteName="AuthStart" // 임시
+          initialRouteName={isAuthed ? "Main" : "AuthStart"}
+          screenOptions={{ headerShown: false, headerTitleAlign: "center" }}
         >
           {/* 1. 인증 플로우 */}
           <Stack.Screen name="AuthStart" component={AuthStartScreen} />
@@ -91,6 +92,14 @@ export default function RootNavigator() {
           <Stack.Screen
             name="CreatePost"
             component={CreatePostScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="PostDetail"
+            component={PostDetailScreen}
             options={{
               headerShown: false,
             }}

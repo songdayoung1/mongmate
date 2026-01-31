@@ -1,34 +1,47 @@
-// 임시 모킹 API — 나중에 실제 서버로 교체
-export type VerifyResponse = {
-  isNew: boolean; // 첫 가입인지 여부
-  accessToken: string;
-  refreshToken: string;
-  user: { id: string; nickname: string | null; phone: string };
+import { apiFetch } from "./client";
+
+export async function sendSmsCode(phoneNumber: string) {
+  return apiFetch<void>("/api/auth/sms/send", {
+    method: "POST",
+    body: JSON.stringify({ phoneNumber }),
+  });
+}
+
+export type VerifyAuthCodeResponse = { success: boolean };
+
+export async function verifySmsCode(phoneNumber: string, code: string) {
+  return apiFetch<VerifyAuthCodeResponse>("/api/auth/sms/verify", {
+    method: "POST",
+    body: JSON.stringify({ phoneNumber, code }),
+  });
+}
+
+export type Gender = "MALE" | "FEMALE";
+
+export type SignUpRequest = {
+  name: string;
+  dateOfBirth: string; // YYYY-MM-DD
+  gender: Gender;
+  phoneNumber: string;
+  marketingAgreed: boolean;
 };
 
-// 폰번호로 OTP 전송 — 여기선 항상 성공 가정
-export async function sendOtp(phone: string): Promise<{ success: true }> {
-  await wait(400);
-  return { success: true };
+export type AuthResponse = {
+  userId: number;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export async function signup(payload: SignUpRequest) {
+  return apiFetch<AuthResponse>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
-// OTP 검증 — code === "123456" 이면 성공, 아니면 throw
-export async function verifyOtp(
-  phone: string,
-  code: string
-): Promise<VerifyResponse> {
-  await wait(600);
-  if (code !== "123456") {
-    throw new Error("INVALID_CODE");
-  }
-
-  const isNew = phone.endsWith("0"); // 임시 규칙: 끝자리가 0이면 신규라고 가정
-  return {
-    isNew,
-    accessToken: `mock_access_${phone}`,
-    refreshToken: `mock_refresh_${phone}`,
-    user: { id: `u_${phone}`, nickname: isNew ? null : "댕댕이", phone },
-  };
+export async function login(phoneNumber: string) {
+  return apiFetch<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ phoneNumber }),
+  });
 }
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));

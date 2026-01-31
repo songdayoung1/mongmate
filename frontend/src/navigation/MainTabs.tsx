@@ -5,11 +5,13 @@ import WalkScreen from "../screens/walk/WalkScreen";
 import CommunityScreen from "../screens/community/CommunityScreen";
 import MyPageGate from "../screens/my/MyPageGate";
 import TabBarIcon from "../components/TabBarIcon";
+import ChatStackNavigator from "./ChatStackNavigator";
 
 export type MainTabParamList = {
   Home: undefined;
   Walk: undefined;
   Community: undefined;
+  Chat: undefined;
   MyPage: undefined;
 };
 
@@ -62,8 +64,18 @@ export default function MainTabs() {
         }}
       />
       <Tab.Screen
+        name="Chat"
+        component={ChatStackNavigator} // ✅ 리스트/상세 스택
+        options={{
+          title: "채팅",
+          tabBarIcon: ({ color, size }) => (
+            <TabBarIcon name="message-circle" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="MyPage"
-        component={MyPageGate} //   게이트로 연결
+        component={MyPageGate}
         options={{
           title: "마이페이지",
           tabBarIcon: ({ color, size }) => (
