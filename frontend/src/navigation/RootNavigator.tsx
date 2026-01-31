@@ -8,13 +8,14 @@ import CreatePostScreen from "../screens/home/CreatePostScreen";
 import AuthStartScreen from "../screens/auth/AuthStartScreen";
 import SignupInfoScreen from "../screens/auth/SignupInfoScreen";
 import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
-import { useAuthStore } from "../store/auth";
 import PostDetailScreen from "../screens/home/PostDetailScreen";
+import { useAuthStore } from "../store/auth";
 
 export type RootStackParamList = {
   Main: undefined;
   MyProfile: undefined;
   CreatePost: undefined;
+  PostDetail: { postId: number } | undefined; // 필요에 맞게
 
   AuthStart: undefined;
   SignupInfo: undefined;
@@ -51,20 +52,17 @@ export default function RootNavigator() {
   return (
     <NavigationContainer theme={theme}>
       <KeyboardDismissWrapper>
-        {/* ✅ key로 스택 자체를 리셋 */}
         <Stack.Navigator
           key={isAuthed ? "authed" : "guest"}
           screenOptions={{ headerShown: false, headerTitleAlign: "center" }}
         >
           {isAuthed ? (
             <>
-              <Stack.Screen
-                name="Main"
-                component={MainTabs}
-                options={{ headerShown: false }}
-              />
+              <Stack.Screen name="Main" component={MainTabs} />
               <Stack.Screen name="MyProfile" component={MyProfileScreen} />
               <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+              {/* ✅ 로그인 상태에서만 접근 가능하게 여기 둠 */}
+              <Stack.Screen name="PostDetail" component={PostDetailScreen} />
             </>
           ) : (
             <>
@@ -73,51 +71,6 @@ export default function RootNavigator() {
               <Stack.Screen name="AuthOtp" component={AuthOtpScreen} />
             </>
           )}
-          {/* 1. 인증 플로우 */}
-          <Stack.Screen name="AuthStart" component={AuthStartScreen} />
-          <Stack.Screen name="SignupInfo" component={SignupInfoScreen} />
-
-          {/* 3단계에서 구현할 OTP */}
-
-          <Stack.Screen name="AuthOtp" component={AuthOtpScreen} />
-
-          <Stack.Screen
-            name="Main"
-            component={MainTabs}
-            options={{ headerShown: false }}
-          />
-
-          {/* <Stack.Screen
-            name="PhoneNumber"
-            component={PhoneNumberScreen}
-            options={{
-              headerShown: false,
-            }}
-          /> */}
-
-          <Stack.Screen
-            name="MyProfile"
-            component={MyProfileScreen}
-            options={{
-              title: "내 프로필",
-            }}
-          />
-
-          <Stack.Screen
-            name="CreatePost"
-            component={CreatePostScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-
-          <Stack.Screen
-            name="PostDetail"
-            component={PostDetailScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
         </Stack.Navigator>
       </KeyboardDismissWrapper>
     </NavigationContainer>
