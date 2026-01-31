@@ -10,6 +10,7 @@ import AuthStartScreen from "../screens/auth/AuthStartScreen";
 import SignupInfoScreen from "../screens/auth/SignupInfoScreen";
 import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
 import { useAuthStore } from "../store/auth";
+import PostDetailScreen from "../screens/home/PostDetailScreen";
 
 export type RootStackParamList = {
   Main: undefined;
@@ -27,6 +28,7 @@ export type RootStackParamList = {
     birth?: string; // "970207"
     idDigit?: string; // "1"
   };
+  PostDetail: { postId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -90,6 +92,14 @@ export default function RootNavigator() {
           <Stack.Screen
             name="CreatePost"
             component={CreatePostScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="PostDetail"
+            component={PostDetailScreen}
             options={{
               headerShown: false,
             }}
