@@ -15,7 +15,7 @@ export type RootStackParamList = {
   Main: undefined;
   MyProfile: undefined;
   CreatePost: undefined;
-  PostDetail: { postId: number } | undefined; // 필요에 맞게
+  PostDetail: { postId: string };
 
   AuthStart: undefined;
   SignupInfo: undefined;
