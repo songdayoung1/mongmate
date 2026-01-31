@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -18,12 +19,15 @@ import { deriveDobAndGender } from "../../utils/koreanId";
 import { useAuthStore } from "../../store/auth";
 import type { AuthState } from "../../store/auth";
 
+// ✅ 개발모드에서는 문자 인증 우회
+const SMS_BYPASS = __DEV__;
+const BYPASS_CODE = "000000";
+
 type Nav = NativeStackNavigationProp<RootStackParamList, "AuthOtp">;
 type AuthOtpRoute = RouteProp<RootStackParamList, "AuthOtp">;
 
 const OTP_DURATION = 3 * 60;
 
-const { setTokens } = useAuthStore.getState();
 export default function AuthOtpScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<AuthOtpRoute>();
@@ -37,7 +41,9 @@ export default function AuthOtpScreen() {
     idDigit,
   } = route.params;
 
+  const hydrated = useAuthStore((s) => s.hydrated);
   const setSession = useAuthStore((s: AuthState) => s.setSession);
+  const setTokens = useAuthStore((s: AuthState) => s.setTokens);
 
   const [phone, setPhone] = React.useState(initialPhoneNumber ?? "");
   const [phoneLocked, setPhoneLocked] = React.useState(mode === "signup");
@@ -51,15 +57,14 @@ export default function AuthOtpScreen() {
   const canRequestOtp = validPhone;
 
   React.useEffect(() => {
-    // 회원가입에서 넘어온 경우: 첫 진입부터 3분 타이머 시작
+    if (!hydrated) return;
     if (mode === "signup") {
       setTimer(OTP_DURATION);
       setIsRunning(true);
       setPhoneLocked(true);
     }
-  }, [mode]);
+  }, [mode, hydrated]);
 
-  // 타이머
   React.useEffect(() => {
     if (!isRunning) return;
     if (timer <= 0) {
@@ -85,12 +90,20 @@ export default function AuthOtpScreen() {
     }
 
     try {
-      await sendSmsCode(cleanPhone);
+      if (!SMS_BYPASS) {
+        await sendSmsCode(cleanPhone);
+        Alert.alert("알림", "인증번호를 발송했어요.");
+      } else {
+        Alert.alert(
+          "개발 모드",
+          `문자 인증 우회 중입니다. (코드: ${BYPASS_CODE})`,
+        );
+      }
+
       setPhoneLocked(true);
       setCode("");
       setTimer(OTP_DURATION);
       setIsRunning(true);
-      Alert.alert("알림", "인증번호를 발송했어요.");
     } catch (e: any) {
       Alert.alert(
         "에러",
@@ -100,21 +113,28 @@ export default function AuthOtpScreen() {
   };
 
   const handleVerify = async () => {
-    navigation.navigate("Main");
-
-    if (code.length !== 6) {
-      Alert.alert("확인", "6자리 인증번호를 입력해주세요.");
+    if (!validPhone) {
+      Alert.alert("확인", "올바른 휴대폰 번호를 입력해주세요.");
       return;
     }
-    if (!isRunning) {
-      Alert.alert("확인", "인증 유효 시간이 지났어요. 다시 요청해주세요.");
-      return;
+
+    if (!SMS_BYPASS) {
+      if (code.length !== 6) {
+        Alert.alert("확인", "6자리 인증번호를 입력해주세요.");
+        return;
+      }
+      if (!isRunning) {
+        Alert.alert("확인", "인증 유효 시간이 지났어요. 다시 요청해주세요.");
+        return;
+      }
     }
 
     try {
-      const { success } = await verifySmsCode(cleanPhone, code);
-      console.log("success ==> ", success);
-      if (!success) {
+      const verified = SMS_BYPASS
+        ? true
+        : (await verifySmsCode(cleanPhone, code)).success;
+
+      if (!verified) {
         Alert.alert("실패", "인증번호가 올바르지 않습니다.");
         return;
       }
@@ -141,29 +161,31 @@ export default function AuthOtpScreen() {
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
         });
-        console.log("가입 후 토큰:", res.accessToken);
         await setTokens(res.accessToken, res.refreshToken);
+
+        navigation.navigate("Main");
         return;
       }
+
+      // login 모드
+      const res = await login(cleanPhone);
+
+      await setSession({
+        userId: res.userId,
+        phoneNumber: cleanPhone,
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      });
+      await setTokens(res.accessToken, res.refreshToken);
+
       navigation.navigate("Main");
-
-      // // login 모드
-      // const res = await login(cleanPhone);
-
-      // await setSession({
-      //   userId: res.userId,
-      //   phoneNumber: cleanPhone,
-      //   accessToken: res.accessToken,
-      //   refreshToken: res.refreshToken,
-      // });
-
-      // navigation.navigate("Main");
     } catch (e: any) {
       Alert.alert("에러", e?.message ?? "인증 처리 중 문제가 발생했습니다.");
     }
   };
 
-  const canVerify = code.length === 6 && isRunning;
+  const canVerify =
+    validPhone && (SMS_BYPASS ? true : code.length === 6 && isRunning);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
@@ -173,37 +195,13 @@ export default function AuthOtpScreen() {
       />
 
       <View style={styles.container}>
-        {/* 회원가입 모드에서만 요약 */}
-        {/* {mode === "signup" && (
-          <View style={styles.summaryBox}>
-            {birth && idDigit && (
-              <>
-                <Text style={styles.summaryLabel}>생년월일</Text>
-                <Text style={styles.summaryValue}>
-                  {birth}-{idDigit}******
-                </Text>
-              </>
-            )}
-            {name && (
-              <>
-                <Text style={styles.summaryLabel}>이름</Text>
-                <Text style={styles.summaryValue}>{name}</Text>
-              </>
-            )}
-            {carrier && (
-              <>
-                <Text style={styles.summaryLabel}>통신사</Text>
-                <Text style={styles.summaryValue}>{carrier}</Text>
-              </>
-            )}
-            {!!cleanPhone && (
-              <>
-                <Text style={styles.summaryLabel}>번호</Text>
-                <Text style={styles.summaryValue}>{cleanPhone}</Text>
-              </>
-            )}
+        {SMS_BYPASS && (
+          <View style={styles.devBypassBanner}>
+            <Text style={styles.devBypassText}>
+              개발 모드: 문자 인증 우회 중 (코드: {BYPASS_CODE})
+            </Text>
           </View>
-        )} */}
+        )}
 
         <Text style={styles.label}>휴대폰 번호</Text>
         <TextInput
@@ -269,21 +267,19 @@ export default function AuthOtpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  summaryBox: {
+  devBypassBanner: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: "#F3F4F6",
-    padding: 12,
     marginBottom: 12,
   },
-  summaryLabel: {
-    fontSize: 11,
-    color: "#6B7280",
-    marginTop: 4,
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "600",
+  devBypassText: {
+    color: "#92400E",
+    fontSize: 12,
+    fontWeight: "700",
   },
   label: {
     fontSize: 13,

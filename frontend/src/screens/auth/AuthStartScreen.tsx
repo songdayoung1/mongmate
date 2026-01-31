@@ -1,15 +1,39 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import TopHeader from "../../components/TopHeader";
+import { login } from "../../api/auth";
+import { useAuthStore } from "../../store/auth";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+const DEV_PHONE = "01040014908";
+
 export default function AuthStartScreen() {
   const navigation = useNavigation<Nav>();
+  const setSession = useAuthStore((s) => s.setSession);
+  const setTokens = useAuthStore((s) => s.setTokens);
+
+  const onDevLogin = async () => {
+    try {
+      const res = await login(DEV_PHONE);
+
+      await setSession({
+        userId: res.userId,
+        phoneNumber: DEV_PHONE,
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      });
+      await setTokens(res.accessToken, res.refreshToken);
+
+      navigation.navigate("Main");
+    } catch (e: any) {
+      Alert.alert("개발 로그인 실패", e?.message ?? "로그인 실패");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -37,6 +61,17 @@ export default function AuthStartScreen() {
         >
           <Text style={styles.secondaryText}>이미 계정이 있어요 · 로그인</Text>
         </TouchableOpacity>
+
+        {/* ✅ 개발모드 전용: 문자 없이 바로 토큰 발급 */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.dev}
+            activeOpacity={0.9}
+            onPress={onDevLogin}
+          >
+            <Text style={styles.devText}>개발 로그인 · {DEV_PHONE}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -74,4 +109,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: "underline",
   },
+
+  dev: {
+    marginTop: 18,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  devText: { color: "#fff", fontSize: 13, fontWeight: "800" },
 });
