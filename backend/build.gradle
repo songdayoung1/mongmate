@@ -55,6 +55,19 @@ dependencies {
 }
 
 tasks.named('test') {
+	// Load non-sensitive values from gradle.properties
+	environment "MYSQL_PORT", project.hasProperty('MYSQL_PORT') ? project.MYSQL_PORT : '3307'
+	environment "REDIS_PORT", project.hasProperty('REDIS_PORT') ? project.REDIS_PORT : '6380'
+	environment "MYSQL_DATABASE", project.hasProperty('MYSQL_DATABASE') ? project.MYSQL_DATABASE : 'mongmate'
+	environment "MYSQL_USER", project.hasProperty('MYSQL_USER') ? project.MYSQL_USER : 'monguser'
+	
+	// Load sensitive values from system environment with defaults
+	environment "MYSQL_PASSWORD", System.getenv('MYSQL_PASSWORD') ?: 'test-password'
+	environment "JWT_SECRET_BASE64", System.getenv('JWT_SECRET_BASE64') ?: 'test-jwt-secret'
+	environment "SOLAPI_API_KEY", System.getenv('SOLAPI_API_KEY') ?: 'test-api-key'
+	environment "SOLAPI_API_SECRET", System.getenv('SOLAPI_API_SECRET') ?: 'test-api-secret'
+	environment "SOLAPI_FROM_NUMBER", System.getenv('SOLAPI_FROM_NUMBER') ?: '01012345678'
+	
 	useJUnitPlatform()
 }
 
