@@ -42,3 +42,6 @@ out/
 .env.production
 *.env
 !.env.example
+
+### Local docs ### 
+/docs/
