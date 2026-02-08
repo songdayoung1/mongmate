@@ -2,8 +2,21 @@
 .idea/
 *.iml
 
+# Environment variables (frontend)
+.env
+
 # macOS system files
 .DS_Store
+
+# Eclipse / STS
+**/.project
+**/.settings/
+
+# VS Code
+**/.vscode/
+
+# OpenCode
+**/.opencode/
 
 # Build output
 /out/
