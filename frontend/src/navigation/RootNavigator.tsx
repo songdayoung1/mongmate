@@ -3,7 +3,6 @@ import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabs from "./MainTabs";
 import KeyboardDismissWrapper from "../components/KeyboardDismissWrapper";
-import MyProfileScreen from "../screens/my/MyProfileScreen";
 import CreatePostScreen from "../screens/home/CreatePostScreen";
 import AuthStartScreen from "../screens/auth/AuthStartScreen";
 import SignupInfoScreen from "../screens/auth/SignupInfoScreen";
@@ -11,11 +10,19 @@ import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
 import PostDetailScreen from "../screens/home/PostDetailScreen";
 import { useAuthStore } from "../store/auth";
 
+import EditMyProfileScreen from "../screens/my/EditMyProfileScreen";
+import DogManageScreen from "../screens/my/DogManageScreen";
+import DogEditScreen from "../screens/my/DogEditScreen";
+
 export type RootStackParamList = {
   Main: undefined;
-  MyProfile: undefined;
   CreatePost: undefined;
   PostDetail: { postId: string };
+
+  // ✅ MyPage 기능
+  EditMyProfile: undefined;
+  DogManage: undefined;
+  DogEdit: { mode: "create" } | { mode: "edit"; dogId: number };
 
   AuthStart: undefined;
   SignupInfo: undefined;
@@ -46,7 +53,6 @@ const theme = {
 export default function RootNavigator() {
   const hydrated = useAuthStore((s) => s.hydrated);
   const isAuthed = useAuthStore((s) => s.isAuthed);
-
   if (!hydrated) return null;
 
   return (
@@ -59,10 +65,16 @@ export default function RootNavigator() {
           {isAuthed ? (
             <>
               <Stack.Screen name="Main" component={MainTabs} />
-              <Stack.Screen name="MyProfile" component={MyProfileScreen} />
               <Stack.Screen name="CreatePost" component={CreatePostScreen} />
-              {/* ✅ 로그인 상태에서만 접근 가능하게 여기 둠 */}
               <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+
+              {/* ✅ 마이페이지 기능 */}
+              <Stack.Screen
+                name="EditMyProfile"
+                component={EditMyProfileScreen}
+              />
+              <Stack.Screen name="DogManage" component={DogManageScreen} />
+              <Stack.Screen name="DogEdit" component={DogEditScreen} />
             </>
           ) : (
             <>

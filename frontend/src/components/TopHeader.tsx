@@ -1,8 +1,4 @@
-import {
-  CommonActions,
-  useNavigation,
-  useRoute,
-} from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import React from "react";
 import {
   View,
@@ -14,6 +10,18 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type BackTarget =
+  | string
+  | {
+      name: string;
+      params?: Record<string, any>;
+      /**
+       * true면 Common goBack처럼 stack pop 시도 후
+       * 안 되면 name으로 이동
+       */
+      preferGoBack?: boolean;
+    };
 
 type Props = {
   title: string;
@@ -28,7 +36,14 @@ type Props = {
   subtitleColor?: string;
   style?: ViewStyle;
   titleStyle?: TextStyle;
-  onBack?: () => void;
+
+  /**
+   * ✅ 추가 기능
+   * - 함수: onBack={() => ...}
+   * - 문자열: onBack="DogManage"
+   * - 객체: onBack={{ name:"Main", params:{ screen:"MyPage" } }}
+   */
+  onBack?: (() => void) | BackTarget;
 };
 
 export default function TopHeader({
@@ -48,33 +63,42 @@ export default function TopHeader({
 }: Props) {
   const navigation = useNavigation<any>();
 
-  const handleBack = () => {
-    // 현재 네비게이터의 스택 상태를 직접 확인
-    const state = navigation.getState() as {
-      index: number;
-      routes: { name: string; params?: object }[];
-    };
-
-    // console.log("state index:", state.index);
-    // console.log(
-    //   "routes:",
-    //   state.routes.map((r) => r.name)
-    // );
-
-    // 1) 스택에 이전 화면이 있으면 → 그 라우트로 강제 이동
-    if (state.index > 0) {
-      const prevRoute = state.routes[state.index - 1];
-      console.log("🔙 go to prev route:", prevRoute.name);
-
-      navigation.navigate(
-        prevRoute.name as never,
-        (prevRoute.params || {}) as never
-      );
-
+  const goToTarget = (target: BackTarget) => {
+    if (typeof target === "string") {
+      navigation.navigate(target as never);
       return;
     }
 
-    // 2) 이전 라우트가 아예 없으면(= 루트 화면이면) → 안전하게 Main 으로
+    const { name, params, preferGoBack } = target;
+
+    if (preferGoBack && navigation.canGoBack?.() && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate(name as never, (params ?? {}) as never);
+  };
+
+  const handleBack = () => {
+    // 1) onBack이 함수면 그대로 실행
+    if (typeof onBack === "function") {
+      onBack();
+      return;
+    }
+
+    // 2) onBack이 문자열/객체면 그곳으로 이동
+    if (onBack) {
+      goToTarget(onBack);
+      return;
+    }
+
+    // 3) 기본 동작: 스택 pop 우선
+    if (navigation.canGoBack?.() && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    // 4) 스택이 없으면 Main으로
     navigation.navigate("Main" as never);
   };
 
@@ -87,11 +111,10 @@ export default function TopHeader({
             hitSlop={12}
             style={styles.backButton}
           >
-            <Text className="text-black" style={styles.backIcon}>
-              ‹
-            </Text>
+            <Text style={styles.backIcon}>‹</Text>
           </Pressable>
         )}
+
         <View style={styles.textWrap}>
           <Text style={[styles.title, { color: titleColor }, titleStyle]}>
             {title}
