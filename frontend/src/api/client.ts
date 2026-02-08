@@ -1,45 +1,74 @@
-import { Platform } from "react-native";
 import { useAuthStore } from "../store/auth";
-import { tokenStorage } from "../lib/tokenStorage";
 
-const API_BASE_URL =
-  Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080";
+const BASE_URL = "http://localhost:8080";
+
+type AuthMode = "auto" | "required" | "none";
+
+type ApiFetchOptions = RequestInit & {
+  auth?: AuthMode; // ✅ 기본 auto
+  debug?: boolean; // ✅ true면 요청헤더 콘솔 출력
+};
+
+async function readBodySafe(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiFetchOptions = {},
 ): Promise<T> {
-  // ✅ Store hydration 타이밍/초기 화면 진입 순서에 따라 accessToken이 아직 null일 수 있어
-  // 요청 직전에 storage에서도 한 번 더 확인한다.
-  let token = useAuthStore.getState().accessToken;
-  if (!token) {
-    token = (await tokenStorage.getAccessToken()) ?? null;
+  const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
+  const { auth = "auto", debug = false, headers, ...rest } = options;
 
-    // storage에는 있는데 store가 비어있다면 동기화
-    if (token) {
-      useAuthStore
-        .getState()
-        .setTokens(token)
-        .catch(() => {});
-    }
+  // ✅ store에서 토큰 가져오기 (필드명이 다르면 여기만 맞추면 됨)
+  const token = useAuthStore.getState().accessToken;
+
+  // ✅ auth=required 인데 토큰 없으면 여기서 끊기
+  if (auth === "required" && !token) {
+    throw new Error("로그인이 필요합니다. (accessToken 없음)");
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  const finalHeaders: Record<string, string> = {
+    Accept: "application/json",
+    ...(headers as any),
+  };
+
+  // body가 있는 요청만 Content-Type 기본 부착
+  // (GET에 Content-Type 붙여도 문제는 없지만 깔끔하게)
+  const hasBody = !!rest.body;
+  if (hasBody && !finalHeaders["Content-Type"]) {
+    finalHeaders["Content-Type"] = "application/json";
+  }
+
+  // ✅ 토큰 부착 규칙:
+  // - auth=none: 절대 안 붙임 (로그인/회원가입)
+  // - auth=auto: 토큰 있으면 붙임
+  // - auth=required: 토큰 반드시 붙임(위에서 없으면 에러)
+  if (auth !== "none" && token) {
+    finalHeaders.Authorization = `Bearer ${token}`;
+  }
+
+  if (debug) {
+    console.log("[apiFetch]", rest.method ?? "GET", url);
+    console.log("[apiFetch] headers:", finalHeaders);
+  }
+
+  const res = await fetch(url, { ...rest, headers: finalHeaders });
+  const data = await readBodySafe(res);
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    const msg =
+      (data && typeof data === "object" && (data.message || data.error)) ||
+      `${res.status} ${res.statusText}`;
+
+    throw new Error(typeof msg === "string" ? msg : "서버 요청 실패");
   }
 
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) return undefined as T;
-
-  return (await res.json()) as T;
+  return data as T;
 }

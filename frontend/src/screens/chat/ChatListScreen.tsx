@@ -8,30 +8,28 @@ import {
   RefreshControl,
   Alert,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import TopHeader from "../../components/TopHeader";
 import type { ChatStackParamList } from "../../navigation/ChatStackNavigator";
-import { loadRecentMessages, loadRoomStateSafe } from "../../api/chat";
+import { loadChatRooms, type ChatRoomListItemDto } from "../../api/chat";
+import { useAuthStore } from "../../store/auth";
 
 type Nav = NativeStackNavigationProp<ChatStackParamList, "ChatList">;
 
-const ROOM_IDS_KEY = "CHAT_ROOM_IDS_V1";
-
 type RoomItem = {
-  roomId: string; // ✅ threadId
-  title: string; // 지금은 정보가 없으니 placeholder
+  roomId: string;
+  title: string;
   lastMessage?: string;
-  lastTimestamp?: number;
   unreadCount: number;
+  updatedAtTs: number;
+  timeText: string;
 };
 
-function formatTime(ts?: number) {
-  if (!ts) return "";
-  const d = new Date(ts);
+function formatTimeFromIso(iso: string) {
+  const d = new Date(iso);
   const now = new Date();
 
   const sameDay =
@@ -52,75 +50,40 @@ function clampPreview(s?: string) {
   return s.length > 40 ? s.slice(0, 40) + "…" : s;
 }
 
-async function getRoomIds(): Promise<string[]> {
-  try {
-    const raw = await AsyncStorage.getItem(ROOM_IDS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(String);
-  } catch {
-    return [];
-  }
+function dtoToRoomItem(dto: ChatRoomListItemDto): RoomItem {
+  const ts = new Date(dto.updatedAt).getTime();
+  return {
+    roomId: String(dto.roomId),
+    title: dto.title || `채팅방 ${dto.roomId}`,
+    lastMessage: dto.lastMessage?.content,
+    unreadCount: dto.unreadCount ?? 0,
+    updatedAtTs: Number.isFinite(ts) ? ts : 0,
+    timeText: dto.updatedAt ? formatTimeFromIso(dto.updatedAt) : "",
+  };
 }
 
-export default function ChatRoomListScreen() {
+export default function ChatListScreen() {
   const navigation = useNavigation<Nav>();
   const [rooms, setRooms] = React.useState<RoomItem[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const buildList = React.useCallback(async () => {
+  const fetchList = React.useCallback(async () => {
     setRefreshing(true);
     try {
-      const roomIds = await getRoomIds();
+      console.log("store token:", useAuthStore.getState().accessToken);
+      const list = await loadChatRooms();
 
-      if (roomIds.length === 0) {
-        setRooms([]);
-        return;
-      }
+      const items = list.map(dtoToRoomItem);
+      items.sort((a, b) => b.updatedAtTs - a.updatedAtTs);
 
-      // ✅ 방 리스트 구성: 최근 1개 메시지 + state(unread) (state는 실패해도 0)
-      const items = await Promise.all(
-        roomIds.map(async (roomId) => {
-          let lastMessage: string | undefined;
-          let lastTimestamp: number | undefined;
-          let unreadCount = 0;
-
-          // 1) last message
-          try {
-            const msgs = await loadRecentMessages(roomId, 1);
-            const last = msgs[msgs.length - 1];
-            if (last) {
-              lastMessage = last.content;
-              lastTimestamp = last.timestamp;
-            }
-          } catch {
-            // messages 실패해도 목록은 유지
-          }
-
-          // 2) unread (state는 500 가능 → safe)
-          try {
-            const state = await loadRoomStateSafe(roomId);
-            if (state && typeof state.unread === "number") {
-              unreadCount = state.unread;
-            }
-          } catch {
-            // safe라 여기까지는 잘 안 옴
-          }
-
-          return {
-            roomId: String(roomId),
-            title: `채팅방 ${roomId}`, // ✅ title 정보가 없으니 임시. (post title 원하면 postId 매핑 필요)
-            lastMessage,
-            lastTimestamp,
-            unreadCount,
-          } satisfies RoomItem;
-        }),
-      );
-
-      // 최신 메시지 기준 정렬
-      items.sort((a, b) => (b.lastTimestamp ?? 0) - (a.lastTimestamp ?? 0));
       setRooms(items);
+    } catch (e: any) {
+      console.log("❌ loadChatRooms error:", e?.message ?? e);
+      Alert.alert(
+        "채팅방 목록 불러오기 실패",
+        e?.message ?? "서버 오류/인증 오류",
+      );
+      setRooms([]);
     } finally {
       setRefreshing(false);
     }
@@ -128,8 +91,8 @@ export default function ChatRoomListScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      buildList();
-    }, [buildList]),
+      fetchList();
+    }, [fetchList]),
   );
 
   const onPressRoom = (room: RoomItem) => {
@@ -137,12 +100,6 @@ export default function ChatRoomListScreen() {
       roomId: room.roomId,
       title: room.title,
     });
-  };
-
-  const clearList = async () => {
-    await AsyncStorage.removeItem(ROOM_IDS_KEY);
-    setRooms([]);
-    Alert.alert("초기화", "채팅방 목록을 초기화했어요.");
   };
 
   return (
@@ -154,17 +111,14 @@ export default function ChatRoomListScreen() {
         keyExtractor={(r) => r.roomId}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={buildList} />
+          <RefreshControl refreshing={refreshing} onRefresh={fetchList} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>채팅방이 없어요</Text>
             <Text style={styles.emptySub}>
-              채팅방에 한 번 들어가면 목록에 저장됩니다.
+              (서버에서 빈 배열을 주거나 인증이 실패하면 여기로 옵니다)
             </Text>
-            <Pressable style={styles.smallBtn} onPress={clearList}>
-              <Text style={styles.smallBtnText}>목록 초기화</Text>
-            </Pressable>
           </View>
         }
         renderItem={({ item }) => (
@@ -177,9 +131,8 @@ export default function ChatRoomListScreen() {
             </View>
 
             <View style={styles.right}>
-              <Text style={styles.time}>{formatTime(item.lastTimestamp)}</Text>
-
-              {!!(item.unreadCount > 0) && (
+              <Text style={styles.time}>{item.timeText}</Text>
+              {item.unreadCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
                     {item.unreadCount > 99 ? "99+" : item.unreadCount}
@@ -231,14 +184,4 @@ const styles = StyleSheet.create({
   empty: { paddingTop: 80, alignItems: "center", gap: 8 },
   emptyTitle: { fontSize: 16, fontWeight: "800", color: "#111827" },
   emptySub: { fontSize: 13, color: "#6B7280", textAlign: "center" },
-
-  smallBtn: {
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  smallBtnText: { fontWeight: "800", color: "#111827" },
 });
