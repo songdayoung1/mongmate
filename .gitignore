@@ -2,8 +2,33 @@
 .idea/
 *.iml
 
+# IDE (Eclipse/STS/VSCode)
+.project
+.settings/
+.classpath
+.factorypath
+.vscode/
+
+# Environment variables
+.env
+.env.local
+**/.env.local
+
+# OpenCode
+.opencode/
+
 # macOS system files
 .DS_Store
+
+# Eclipse / STS
+**/.project
+**/.settings/
+
+# VS Code
+**/.vscode/
+
+# OpenCode
+**/.opencode/
 
 # Build output
 /out/
@@ -55,3 +80,4 @@ frontend/ios/build/
 /settings.gradle
 backend/.gradle/
 backend/.gradle_home/
+

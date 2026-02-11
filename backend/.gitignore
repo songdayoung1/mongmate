@@ -38,3 +38,8 @@ out/
 
 ### env ###
 .env
+.env.local
+
+### docs ###
+docs/
+
