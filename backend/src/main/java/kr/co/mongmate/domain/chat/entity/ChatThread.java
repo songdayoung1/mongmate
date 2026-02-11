@@ -49,6 +49,9 @@ public class ChatThread {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
     @OneToMany(
             mappedBy = "chatThread",
             cascade = CascadeType.ALL   // 메시지는 스레드 라이프사이클에 따라 생성/삭제
@@ -94,7 +97,8 @@ public class ChatThread {
         this.walkPost = walkPost;
         this.author = author;
         this.participant = participant;
-        this.createdAt = createdAt;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.updatedAt = this.createdAt;
     }
 
     /**
@@ -123,6 +127,10 @@ public class ChatThread {
         if (!messages.contains(message)) {
             messages.add(message);
         }
+    }
+
+    public void touchUpdatedAt(LocalDateTime timestamp) {
+        this.updatedAt = timestamp != null ? timestamp : LocalDateTime.now();
     }
 
 }

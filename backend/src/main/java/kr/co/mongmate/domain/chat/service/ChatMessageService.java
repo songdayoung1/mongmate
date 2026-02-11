@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class ChatMessageService {
@@ -27,16 +29,20 @@ public class ChatMessageService {
         ChatThread thread = chatThreadRepository.getReferenceById(threadId);
         User sender = userRepository.getReferenceById(senderId);
 
+        LocalDateTime now = LocalDateTime.now();
+
         ChatMessage saved = chatMessageRepository.save(
                 ChatMessage.builder()
                         .chatThread(thread)
                         .sender(sender)
                         .content(content)
+                        .sentAt(now)
                         .build()
         );
+
+        thread.touchUpdatedAt(now);
 
         return saved.getId();
     }
 }
-
 

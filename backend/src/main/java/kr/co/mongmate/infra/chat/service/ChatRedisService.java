@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.OptionalLong;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +46,14 @@ public class ChatRedisService {
         if (v == null) return 0L;
         try { return Long.parseLong(v); }
         catch (NumberFormatException e) { return 0L; }
+    }
+
+    /** 유저 lastReadSeq 조회 (없으면 OptionalLong.empty) */
+    public OptionalLong getLastReadSeqIfPresent(String roomId, String userId) {
+        String v = redisTemplate.opsForValue().get(readKey(roomId, userId));
+        if (v == null) return OptionalLong.empty();
+        try { return OptionalLong.of(Long.parseLong(v)); }
+        catch (NumberFormatException e) { return OptionalLong.empty(); }
     }
 
 
@@ -87,4 +96,3 @@ public class ChatRedisService {
         }
     }
 }
-

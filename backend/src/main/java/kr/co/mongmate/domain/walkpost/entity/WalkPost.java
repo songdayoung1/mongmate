@@ -10,6 +10,7 @@ import kr.co.mongmate.domain.user.entity.User;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.lang.NonNull;
 
 @Entity
 @Table(
@@ -275,7 +276,7 @@ public class WalkPost {
             return this;
         }
 
-        public WalkPost build() {
+        public @NonNull WalkPost build() {
             Objects.requireNonNull(author, "author must not be null");
             Objects.requireNonNull(title, "title must not be null");
             Objects.requireNonNull(regionId, "regionId must not be null");
