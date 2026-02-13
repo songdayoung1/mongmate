@@ -1,5 +1,10 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import {
+  getFocusedRouteNameFromRoute,
+  RouteProp,
+} from "@react-navigation/native";
+
 import HomeScreen from "../screens/home/HomeScreen";
 import WalkScreen from "../screens/walk/WalkScreen";
 import CommunityScreen from "../screens/community/CommunityScreen";
@@ -43,6 +48,7 @@ export default function MainTabs() {
           ),
         }}
       />
+
       <Tab.Screen
         name="Walk"
         component={WalkScreen}
@@ -53,6 +59,7 @@ export default function MainTabs() {
           ),
         }}
       />
+
       <Tab.Screen
         name="Community"
         component={CommunityScreen}
@@ -63,16 +70,34 @@ export default function MainTabs() {
           ),
         }}
       />
+
       <Tab.Screen
         name="Chat"
-        component={ChatStackNavigator} // ✅ 리스트/상세 스택
-        options={{
-          title: "채팅",
-          tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="message-circle" color={color} size={size} />
-          ),
+        component={ChatStackNavigator}
+        options={({ route }) => {
+          const routeName =
+            getFocusedRouteNameFromRoute(route as any) ?? "ChatList";
+
+          const hideTab = routeName === "ChatRoom";
+
+          return {
+            title: "채팅",
+            tabBarIcon: ({ color, size }) => (
+              <TabBarIcon name="message-circle" color={color} size={size} />
+            ),
+            // ✅ ChatRoom에서는 탭바 숨김
+            tabBarStyle: hideTab
+              ? { display: "none" }
+              : {
+                  backgroundColor: "#fff",
+                  borderTopColor: "#eee",
+                  height: 60,
+                  paddingBottom: 5,
+                },
+          };
         }}
       />
+
       <Tab.Screen
         name="MyPage"
         component={MyPageGate}

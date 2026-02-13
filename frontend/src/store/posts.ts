@@ -1,7 +1,12 @@
 import { create } from "zustand";
-import { listWalkPosts, type WalkPostListResponse } from "../api/walkPosts";
+import {
+  listWalkPosts,
+  type WalkPostStatus,
+  type WalkRecruitType,
+} from "../api/walkPosts";
 
 export type PostType = "WALK" | "DOG_CAFE";
+const DOG_CAFE_PREFIX = "[DOG_CAFE] ";
 
 export type HomePost = {
   id: string;
@@ -10,59 +15,38 @@ export type HomePost = {
   region: string;
   deadlineText: string;
   authorNickname: string;
-  content: string;
-  placeName?: string;
+  content: string; // list에는 없어서 빈값일 수 있음
+  placeName?: string; // list에는 없어서 region로 대체
   createdAt: string;
+  status: WalkPostStatus; // ✅ 중요: 상세/버튼에서 사용
 };
 
 type PostStore = {
   posts: HomePost[];
   isLoading: boolean;
   error: string | null;
-
-  addPost: (input: Omit<HomePost, "id" | "createdAt">) => void;
   loadPosts: (opts?: { page?: number; size?: number }) => Promise<void>;
 };
 
-function deadlineText(deadlineAt: string | null) {
-  // 지금 너 백엔드 응답에 deadlineAt이 null일 수 있음
-  if (!deadlineAt) return "마감일 미정";
-  return deadlineAt; // 일단 그대로 보여주고, 나중에 포맷팅 원하면 바꾸면 됨
+function inferTypeAndTitle(
+  serverType: WalkRecruitType,
+  title: string,
+): { type: PostType; title: string } {
+  if (title.startsWith(DOG_CAFE_PREFIX)) {
+    return { type: "DOG_CAFE", title: title.replace(DOG_CAFE_PREFIX, "") };
+  }
+  return { type: serverType === "DOG_CAFE" ? "DOG_CAFE" : "WALK", title };
 }
 
-function mapItemToHomePost(
-  item: WalkPostListResponse["items"][number],
-): HomePost {
-  return {
-    id: String(item.postId),
-    type: item.recruitType as PostType,
-    title: item.title,
-    region:
-      item.region?.displayName ??
-      (item.region?.regionId ? `지역 #${item.region.regionId}` : "지역 미정"),
-    deadlineText: deadlineText(item.deadlineAt),
-    authorNickname: item.authorNickname ?? "알 수 없음",
-    content: "", // 목록 응답엔 content가 없어서 빈값
-    createdAt: item.createdAt,
-  };
+function deadlineText(deadlineAt: string | null) {
+  if (!deadlineAt) return "마감일 미정";
+  return deadlineAt;
 }
 
 export const usePostStore = create<PostStore>((set) => ({
-  posts: [], // ✅ 초기엔 빈 배열 (서버에서 채움)
+  posts: [],
   isLoading: false,
   error: null,
-
-  addPost: (input) =>
-    set((state) => ({
-      posts: [
-        {
-          ...input,
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
-        },
-        ...state.posts,
-      ],
-    })),
 
   loadPosts: async (opts) => {
     const page = opts?.page ?? 0;
@@ -70,18 +54,32 @@ export const usePostStore = create<PostStore>((set) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const res = await listWalkPosts({
-        page,
-        size,
-        // ✅ 너 백엔드 응답에서 recruitType="WALK" 글이 있으니 명시해도 되고 생략해도 됨
-        // recruitType: "WALK",
-        // status: "OPEN",
+      const res = await listWalkPosts({ page, size });
+
+      const mapped: HomePost[] = res.items.map((it) => {
+        const fixed = inferTypeAndTitle(it.recruitType, it.title);
+        return {
+          id: String(it.postId),
+          type: fixed.type,
+          title: fixed.title,
+          region:
+            it.region?.displayName ??
+            (it.region?.regionId ? `지역 #${it.region.regionId}` : "지역 미정"),
+          deadlineText: deadlineText(it.deadlineAt),
+          authorNickname: it.authorNickname ?? "알 수 없음",
+          content: "", // 상세에서 보강
+          createdAt: it.createdAt,
+          status: it.status,
+        };
       });
 
-      set({
-        posts: res.items.map(mapItemToHomePost),
-        isLoading: false,
-      });
+      // ✅ 최신순 정렬
+      mapped.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
+      set({ posts: mapped, isLoading: false });
     } catch (e: any) {
       set({ isLoading: false, error: e?.message ?? "게시글 조회 실패" });
     }

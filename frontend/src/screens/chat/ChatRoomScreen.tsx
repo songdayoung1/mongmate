@@ -22,7 +22,12 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import TopHeader from "../../components/TopHeader";
 import { useAuthStore } from "../../store/auth";
-import { loadRecentMessages, ChatMessageDto } from "../../api/chat";
+import {
+  loadRecentMessages,
+  loadRoomState,
+  markRoomRead,
+  ChatMessageDto,
+} from "../../api/chat";
 import {
   publishChat,
   subscribeRoom,
@@ -40,22 +45,24 @@ type UIMessage = {
   userId: string;
   content: string;
   timestamp: number;
+  pending?: boolean;
 };
 
-function toUIMessage(m: ChatMessageDto): UIMessage {
-  // 백엔드가 timestamp(number) or sentAt(ISO) 섞일 수 있으니 안전 처리
-  const ts =
-    typeof (m as any).timestamp === "number"
-      ? (m as any).timestamp
-      : Date.parse((m as any).sentAt ?? "") || Date.now();
+function toTs(m: any) {
+  if (typeof m?.timestamp === "number") return m.timestamp;
+  const iso = m?.sentAt ?? m?.createdAt ?? "";
+  const p = Date.parse(iso);
+  return Number.isFinite(p) ? p : Date.now();
+}
 
+function toUIMessage(m: ChatMessageDto): UIMessage {
   return {
     key: `${m.roomId}-${m.seq}`,
     roomId: m.roomId,
     seq: m.seq,
     userId: m.userId,
     content: m.content,
-    timestamp: ts,
+    timestamp: toTs(m),
   };
 }
 
@@ -66,14 +73,23 @@ function toUIMessageFromWS(m: IncomingChatMessage): UIMessage {
     seq: m.seq,
     userId: m.userId,
     content: m.content,
-    timestamp: typeof m.timestamp === "number" ? m.timestamp : Date.now(),
+    timestamp: toTs(m),
   };
+}
+
+function formatKakaoTime(ts: number) {
+  const d = new Date(ts);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h < 12 ? "오전" : "오후";
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  const mm = String(m).padStart(2, "0");
+  return `${ampm} ${hh}:${mm}`;
 }
 
 export default function ChatRoomScreen() {
   const route = useRoute<R>();
   const navigation = useNavigation<Nav>();
-
   const { roomId, title } = route.params;
 
   const myUserId = useAuthStore((s) => String(s.userId ?? ""));
@@ -83,41 +99,92 @@ export default function ChatRoomScreen() {
 
   const unsubRef = useRef<null | (() => void)>(null);
 
+  // ✅ FlatList 하단 이동
+  const listRef = useRef<FlatList<UIMessage>>(null);
+  const didInitialScroll = useRef(false);
+
+  // ✅ markRead 디바운스
+  const lastMarkedRef = useRef<number>(0);
+  const markTimerRef = useRef<any>(null);
+
+  const scheduleMarkRead = useCallback(
+    (seq: number) => {
+      if (!Number.isFinite(seq)) return;
+      if (seq <= lastMarkedRef.current) return;
+
+      if (markTimerRef.current) clearTimeout(markTimerRef.current);
+      markTimerRef.current = setTimeout(async () => {
+        try {
+          await markRoomRead(roomId, seq);
+          lastMarkedRef.current = seq;
+        } catch {}
+      }, 250);
+    },
+    [roomId],
+  );
+
   const loadInitial = useCallback(async () => {
     try {
       setLoading(true);
+
       const recent = await loadRecentMessages(roomId, 50);
-      // 최신 -> 과거로 올 수도 있어서 일단 timestamp 기준 정렬 후 아래에서 invert로 보여줌
       const ui = recent
         .map(toUIMessage)
         .sort((a, b) => a.timestamp - b.timestamp);
       setMessages(ui);
+
+      // ✅ 방 입장 시 currentSeq까지 읽음 처리
+      const st = await loadRoomState(roomId);
+      scheduleMarkRead(st.currentSeq);
+
+      // ✅ 최신 메시지로 이동 (inverted list라 offset 0이 “맨 아래(최신)”)
+      requestAnimationFrame(() => {
+        didInitialScroll.current = true;
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      });
     } catch (e: any) {
       Alert.alert("채팅 불러오기 실패", e?.message ?? "오류");
     } finally {
       setLoading(false);
     }
-  }, [roomId]);
+  }, [roomId, scheduleMarkRead]);
 
   useEffect(() => {
-    // 진짜 “방 상세”로 들어올 때:
-    // 1) 최근 메시지 로드
-    // 2) WS 구독
     loadInitial();
 
     (async () => {
       try {
         unsubRef.current?.();
         unsubRef.current = await subscribeRoom(roomId, (m) => {
-          const ui = toUIMessageFromWS(m);
+          const incoming = toUIMessageFromWS(m);
+
           setMessages((prev) => {
             // 중복 방지
-            if (prev.some((x) => x.key === ui.key)) return prev;
-            return [...prev, ui].sort((a, b) => a.timestamp - b.timestamp);
+            if (prev.some((x) => x.key === incoming.key)) return prev;
+
+            // ✅ 내가 보낸 메시지면 pending 하나 제거(중복처럼 보이는 문제 해결)
+            let next = prev;
+            if (incoming.userId === myUserId) {
+              const idx = prev.findIndex(
+                (x) => x.pending && x.content === incoming.content,
+              );
+              if (idx >= 0)
+                next = [...prev.slice(0, idx), ...prev.slice(idx + 1)];
+            }
+            return [...next, incoming].sort(
+              (a, b) => a.timestamp - b.timestamp,
+            );
+          });
+
+          // ✅ 새 메시지 들어오면 read 갱신
+          if (typeof incoming.seq === "number") scheduleMarkRead(incoming.seq);
+
+          // ✅ 최신으로 유지(카톡처럼)
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToOffset({ offset: 0, animated: true });
           });
         });
       } catch (e: any) {
-        console.error(e);
         Alert.alert("실시간 연결 실패", e?.message ?? "오류");
       }
     })();
@@ -125,8 +192,9 @@ export default function ChatRoomScreen() {
     return () => {
       unsubRef.current?.();
       unsubRef.current = null;
+      if (markTimerRef.current) clearTimeout(markTimerRef.current);
     };
-  }, [roomId, loadInitial]);
+  }, [roomId, loadInitial, myUserId, scheduleMarkRead]);
 
   const onSend = useCallback(async () => {
     const content = text.trim();
@@ -134,30 +202,46 @@ export default function ChatRoomScreen() {
 
     setText("");
 
-    // UI에 먼저 반영(옵션)
-    const optimistic: UIMessage = {
-      key: `local-${Date.now()}`,
+    const pending: UIMessage = {
+      key: `pending-${Date.now()}`,
       roomId,
       userId: myUserId || "me",
       content,
       timestamp: Date.now(),
+      pending: true,
     };
+
     setMessages((prev) =>
-      [...prev, optimistic].sort((a, b) => a.timestamp - b.timestamp),
+      [...prev, pending].sort((a, b) => a.timestamp - b.timestamp),
     );
+
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
 
     try {
       await publishChat({ roomId, content });
     } catch (e: any) {
+      setMessages((prev) => prev.filter((x) => x.key !== pending.key));
       Alert.alert("전송 실패", e?.message ?? "오류");
     }
   }, [text, roomId, myUserId]);
 
+  const dataForInverted = useMemo(() => {
+    // inverted=true일 때는 “최신이 위로 오게” reverse해서 줘야 자연스럽게 보임
+    return [...messages].sort((a, b) => a.timestamp - b.timestamp).reverse();
+  }, [messages]);
+
   const renderItem = useCallback(
     ({ item }: { item: UIMessage }) => {
       const isMine = item.userId === myUserId;
+      const time = formatKakaoTime(item.timestamp);
+
       return (
-        <View style={[styles.bubbleRow, isMine ? styles.right : styles.left]}>
+        <View style={[styles.row, isMine ? styles.rowRight : styles.rowLeft]}>
+          {/* 카톡 느낌: 내 메시지는 시간(왼쪽) + 버블(오른쪽), 상대는 버블 + 시간 */}
+          {isMine && <Text style={styles.timeText}>{time}</Text>}
+
           <View style={[styles.bubble, isMine ? styles.mine : styles.theirs]}>
             <Text
               style={[
@@ -167,7 +251,10 @@ export default function ChatRoomScreen() {
             >
               {item.content}
             </Text>
+            {item.pending && <Text style={styles.pending}>전송중…</Text>}
           </View>
+
+          {!isMine && <Text style={styles.timeText}>{time}</Text>}
         </View>
       );
     },
@@ -192,11 +279,20 @@ export default function ChatRoomScreen() {
       />
 
       <FlatList
+        ref={listRef}
+        inverted
         contentContainerStyle={styles.listContent}
-        data={messages}
+        data={dataForInverted}
         keyExtractor={(m) => m.key}
         renderItem={renderItem}
         ListEmptyComponent={empty}
+        onContentSizeChange={() => {
+          // 최초 진입 시 한 번 더 확실히 최신으로
+          if (!didInitialScroll.current && dataForInverted.length > 0) {
+            didInitialScroll.current = true;
+            listRef.current?.scrollToOffset({ offset: 0, animated: false });
+          }
+        }}
       />
 
       <View style={styles.inputRow}>
@@ -223,15 +319,21 @@ export default function ChatRoomScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F9FAFB" },
   listContent: { padding: 14, paddingBottom: 10 },
-
   empty: { textAlign: "center", color: "#6B7280", marginTop: 30 },
 
-  bubbleRow: { marginBottom: 10, flexDirection: "row" },
-  left: { justifyContent: "flex-start" },
-  right: { justifyContent: "flex-end" },
+  row: {
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  rowLeft: { justifyContent: "flex-start" },
+  rowRight: { justifyContent: "flex-end" },
+
+  timeText: { fontSize: 11, color: "#9CA3AF", marginBottom: 2 },
 
   bubble: {
-    maxWidth: "80%",
+    maxWidth: "76%",
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 14,
@@ -242,6 +344,14 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 15 },
   mineText: { color: "#fff" },
   theirsText: { color: "#111827" },
+
+  pending: {
+    marginTop: 6,
+    fontSize: 11,
+    opacity: 0.85,
+    color: "#ffffff",
+    textAlign: "right",
+  },
 
   inputRow: {
     flexDirection: "row",

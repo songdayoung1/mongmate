@@ -1,18 +1,23 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   FlatList,
   RefreshControl,
-  Dimensions,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { MapPin, Plus, Search, Bell, Dog, Coffee } from "lucide-react-native";
+import {
+  MapPin,
+  Plus,
+  Search,
+  Bell,
+  Dog,
+  Coffee,
+  ChevronRight,
+} from "lucide-react-native";
 
 import { usePostStore, HomePost } from "../../store/posts";
 import { useUserStore } from "../../store/user";
@@ -23,24 +28,21 @@ type FilterTab = "ALL" | "WALK" | "DOG_CAFE";
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
-
-  // ✅ store에서 loadPosts도 가져오기
   const { posts, loadPosts, isLoading } = usePostStore();
   const { profile, stats } = useUserStore();
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("ALL");
   const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ 진입 시 서버에서 목록 로드
+  // ✅ 홈은 5개만 보여줄 거지만, 필터/정렬 안정적으로 하려고 조금 넉넉히 로드
   useEffect(() => {
-    loadPosts({ page: 0, size: 10 });
+    loadPosts({ page: 0, size: 20 });
   }, [loadPosts]);
 
-  // ✅ Pull to refresh도 서버 재호출
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await loadPosts({ page: 0, size: 10 });
+      await loadPosts({ page: 0, size: 20 });
     } finally {
       setRefreshing(false);
     }
@@ -50,10 +52,20 @@ export default function HomeScreen() {
     navigation.navigate("CreatePost");
   };
 
-  const filteredPosts = posts.filter((post) => {
-    if (activeFilter === "ALL") return true;
-    return post.type === activeFilter;
-  });
+  const handlePressMore = () => {
+    // ✅ 홈 -> 커뮤니티 탭으로 이동
+    navigation.navigate("Community");
+  };
+
+  const filteredPosts = useMemo(() => {
+    const base = posts.filter((post) => {
+      if (activeFilter === "ALL") return true;
+      return post.type === activeFilter;
+    });
+
+    // ✅ 홈에서는 딱 5개만
+    return base.slice(0, 5);
+  }, [posts, activeFilter]);
 
   const renderPostItem = ({ item }: { item: HomePost }) => {
     const isWalk = item.type === "WALK";
@@ -169,7 +181,17 @@ export default function HomeScreen() {
         />
       </ScrollView>
 
-      <Text style={styles.sectionTitle}>최신 게시글 🌟</Text>
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>최신 게시글 🌟</Text>
+        <AnimatedButton
+          style={styles.moreBtn}
+          onPress={handlePressMore}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.moreText}>더보기</Text>
+          <ChevronRight size={16} color={COLORS.textMuted} />
+        </AnimatedButton>
+      </View>
     </View>
   );
 
@@ -217,6 +239,18 @@ export default function HomeScreen() {
             </Text>
           </View>
         }
+        ListFooterComponent={
+          // ✅ 5개만 보여주니, 아래에도 더보기 버튼 한번 더
+          <View style={{ paddingTop: 16, paddingBottom: 40 }}>
+            <AnimatedButton
+              style={styles.moreFooterBtn}
+              onPress={handlePressMore}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.moreFooterText}>커뮤니티에서 더 보기</Text>
+            </AnimatedButton>
+          </View>
+        }
       />
 
       <AnimatedButton
@@ -254,149 +288,141 @@ function FilterChip({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   locationChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: "#E8FFF5",
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: SIZES.radius.circle,
-    gap: 4,
+    borderRadius: 20,
+    gap: 6,
   },
-  locationText: { fontSize: 14, fontWeight: "700", color: COLORS.primaryDark },
-  topActions: { flexDirection: "row", gap: 12 },
+  locationText: { fontSize: 13, fontWeight: "700", color: "#0ACF83" },
+  topActions: { flexDirection: "row", gap: 10 },
   iconButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius.circle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
     ...SHADOWS.soft,
   },
   badge: {
     position: "absolute",
-    top: 6,
-    right: 6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.error,
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#EF4444",
   },
-  listContent: { paddingBottom: 100 },
-  headerContainer: { paddingHorizontal: 20, paddingBottom: 16 },
+
+  listContent: { paddingHorizontal: 20, paddingBottom: 10 },
+  headerContainer: { paddingBottom: 12 },
   greetingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginTop: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  greetingSub: {
-    fontSize: 14,
-    color: COLORS.textSub,
-    marginBottom: 6,
-    fontWeight: "500",
-  },
+  greetingSub: { fontSize: 14, color: COLORS.textSub, fontWeight: "600" },
   greetingMain: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 22,
+    fontWeight: "900",
     color: COLORS.textMain,
-    lineHeight: 34,
+    marginTop: 6,
+    lineHeight: 30,
   },
-  profileButton: { marginTop: 4, ...SHADOWS.soft },
+  profileButton: {},
   avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
   },
-  avatarText: { fontSize: 20, fontWeight: "800", color: COLORS.primary },
+  avatarText: { fontSize: 16, fontWeight: "900", color: COLORS.textMuted },
+
   dashboardCard: {
     flexDirection: "row",
     backgroundColor: COLORS.white,
-    borderRadius: 28,
-    padding: 24,
-    marginBottom: 32,
-    ...SHADOWS.medium,
+    borderRadius: 20,
+    padding: 16,
+    ...SHADOWS.soft,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: COLORS.border,
+    marginBottom: 14,
   },
-  statItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
+  statItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   statIconWrap: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 14,
     backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#9CA3AF",
-    marginBottom: 4,
+  statLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: "700" },
+  statValue: {
+    fontSize: 18,
+    color: COLORS.textMain,
+    fontWeight: "900",
+    marginTop: 2,
   },
-  statValue: { fontSize: 18, fontWeight: "800", color: COLORS.textMain },
-  divider: {
-    width: 1,
-    height: "80%",
-    backgroundColor: "#374151",
-    marginHorizontal: 16,
-    alignSelf: "center",
-  },
-  filterRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 24,
-    paddingHorizontal: 4,
-  },
+  divider: { width: 1, backgroundColor: COLORS.divider, marginHorizontal: 12 },
+
+  filterRow: { paddingVertical: 6, gap: 10 },
   chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: SIZES.radius.circle,
+    borderRadius: 999,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,
   },
   chipActive: {
-    backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
-    ...SHADOWS.medium,
+    backgroundColor: COLORS.primaryLight,
   },
-  chipText: { fontSize: 14, fontWeight: "600", color: COLORS.textSub },
-  chipTextActive: { color: COLORS.white },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: COLORS.textMain,
-    marginBottom: 16,
+  chipText: { fontSize: 13, fontWeight: "700", color: COLORS.textSub },
+  chipTextActive: { color: COLORS.primaryDark },
+
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
   },
+  sectionTitle: { fontSize: 18, fontWeight: "900", color: COLORS.textMain },
+  moreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  moreText: { fontSize: 13, fontWeight: "800", color: COLORS.textMuted },
 
   card: {
     backgroundColor: COLORS.white,
-    borderRadius: 24,
-    padding: 20,
-    marginHorizontal: 20,
-    ...SHADOWS.card,
+    borderRadius: 20,
+    padding: 16,
+    ...SHADOWS.soft,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -404,75 +430,63 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   typeBadge: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
-    gap: 6,
+    borderRadius: 999,
   },
-  typeText: { fontSize: 12, fontWeight: "700" },
-  deadline: {
-    fontSize: 12,
-    color: COLORS.textSub,
-    fontWeight: "600",
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    overflow: "hidden",
-  },
+  typeText: { fontSize: 12, fontWeight: "900" },
+  deadline: { fontSize: 12, color: COLORS.textMuted, fontWeight: "700" },
   cardTitle: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "900",
     color: COLORS.textMain,
-    lineHeight: 26,
-    marginBottom: 16,
+    lineHeight: 22,
+    marginBottom: 10,
   },
   cardMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
   },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { fontSize: 13, fontWeight: "500", color: COLORS.textSub },
-  authorText: { fontSize: 13, fontWeight: "500", color: COLORS.textMuted },
+  metaText: { fontSize: 13, color: COLORS.textMuted, fontWeight: "700" },
+  authorText: { fontSize: 12, color: COLORS.textMuted, fontWeight: "700" },
+
+  emptyContainer: {
+    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 40,
+    gap: 10,
+  },
+  emptyText: { fontSize: 16, fontWeight: "800", color: COLORS.textMain },
+  emptySub: { fontSize: 13, color: COLORS.textMuted, fontWeight: "700" },
+
+  moreFooterBtn: {
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+    ...SHADOWS.soft,
+  },
+  moreFooterText: { color: "#fff", fontWeight: "900", fontSize: 15 },
 
   fab: {
     position: "absolute",
-    bottom: 24,
     right: 20,
+    bottom: 24,
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-    borderWidth: 2,
-    borderColor: COLORS.white,
+    ...SHADOWS.medium,
   },
-
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.textMain,
-  },
-  emptySub: { marginTop: 6, fontSize: 14, color: COLORS.textMuted },
 });
