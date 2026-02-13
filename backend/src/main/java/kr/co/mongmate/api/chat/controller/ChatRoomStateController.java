@@ -4,7 +4,9 @@ import kr.co.mongmate.api.chat.dto.ChatRoomStateResponse;
 import kr.co.mongmate.api.chat.service.ChatRoomAccessService;
 import kr.co.mongmate.infra.chat.service.ChatRedisService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 
@@ -20,7 +22,7 @@ public class ChatRoomStateController {
 
     @GetMapping("/{roomId}/state")
     public ChatRoomStateResponse getState(@PathVariable String roomId, Principal principal) {
-        String userId = principal.getName();
+        String userId = requireUserId(principal);
 
         // ✅ 권한 체크(멤버인가?)
         chatRoomAccessService.assertMember(roomId, userId);
@@ -30,5 +32,12 @@ public class ChatRoomStateController {
         long unread = Math.max(0, current - lastRead);
 
         return new ChatRoomStateResponse(roomId, current, lastRead, unread);
+    }
+
+    private String requireUserId(Principal principal) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "unauthorized");
+        }
+        return principal.getName();
     }
 }

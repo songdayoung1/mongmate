@@ -5,7 +5,9 @@ import kr.co.mongmate.api.chat.dto.ChatReadResponse;
 import kr.co.mongmate.api.chat.service.ChatRoomAccessService;
 import kr.co.mongmate.infra.chat.service.ChatRedisService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 
@@ -23,7 +25,7 @@ public class ChatReadController {
                                      @RequestBody ChatReadRequest req,
                                      Principal principal) {
 
-        String userId = principal.getName();
+        String userId = requireUserId(principal);
 
         // ✅ 권한 체크(멤버인가?)
         chatRoomAccessService.assertMember(roomId, userId);
@@ -33,5 +35,12 @@ public class ChatReadController {
 
         chatRedisService.setLastReadSeq(roomId, userId, safeLastRead);
         return new ChatReadResponse(roomId, userId, safeLastRead);
+    }
+
+    private String requireUserId(Principal principal) {
+        if (principal == null || principal.getName() == null || principal.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "unauthorized");
+        }
+        return principal.getName();
     }
 }
