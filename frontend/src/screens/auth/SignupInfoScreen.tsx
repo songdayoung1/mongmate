@@ -15,6 +15,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import TopHeader from "../../components/TopHeader";
 import { sendSmsCode } from "../../api/auth";
+import AnimatedButton from "../../components/AnimatedButton";
+import { COLORS, SIZES, SHADOWS } from "../../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -186,7 +188,7 @@ export default function SignupInfoScreen() {
             )}
 
             {/* ✅ 이름 입력 후 '다음' 버튼 */}
-            <TouchableOpacity
+            <AnimatedButton
               style={[
                 styles.nameNextButton,
                 !validName && styles.nameNextButtonDisabled,
@@ -196,7 +198,7 @@ export default function SignupInfoScreen() {
               onPress={() => setNameConfirmed(true)}
             >
               <Text style={styles.nameNextText}>다음</Text>
-            </TouchableOpacity>
+            </AnimatedButton>
           </>
         )}
 
@@ -205,17 +207,17 @@ export default function SignupInfoScreen() {
           <>
             <Text style={styles.label}>통신사</Text>
 
-            <TouchableOpacity
+            <AnimatedButton
               style={styles.dropdown}
               activeOpacity={0.8}
               onPress={() => setCarrierOpen((prev) => !prev)}
             >
               <Text
-                style={[styles.dropdownText, !carrier && { color: "#9CA3AF" }]}
+                style={[styles.dropdownText, !carrier && { color: COLORS.textMuted }]}
               >
                 {carrier || "통신사를 선택해주세요"}
               </Text>
-            </TouchableOpacity>
+            </AnimatedButton>
 
             {carrierOpen && (
               <View style={styles.dropdownList}>
@@ -257,13 +259,13 @@ export default function SignupInfoScreen() {
 
         {/* 버튼(마지막까지 입력 완료 시에만 생성) */}
         {canRequestOtp && (
-          <TouchableOpacity
+          <AnimatedButton
             style={styles.nextButton}
             activeOpacity={0.9}
             onPress={handleRequestOtp}
           >
             <Text style={styles.nextText}>인증번호 받기</Text>
-          </TouchableOpacity>
+          </AnimatedButton>
         )}
       </View>
     </SafeAreaView>
@@ -329,30 +331,34 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     marginTop: 32,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#0ACF83",
+    height: 56,
+    borderRadius: SIZES.radius.xl,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.medium,
   },
   nextText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: "700",
   },
   nameNextButton: {
-    marginTop: 12,
+    marginTop: 16,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: "#111827",
+    borderRadius: SIZES.radius.lg,
+    backgroundColor: COLORS.secondary, // Changed from black (#111827) to secondary
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.soft,
   },
   nameNextButtonDisabled: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: COLORS.textMuted,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   nameNextText: {
-    color: "#FFFFFF",
+    color: COLORS.white,
     fontSize: 15,
     fontWeight: "700",
   },

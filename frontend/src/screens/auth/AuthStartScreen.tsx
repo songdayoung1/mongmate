@@ -7,6 +7,7 @@ import type { RootStackParamList } from "../../navigation/RootNavigator";
 import TopHeader from "../../components/TopHeader";
 import { login } from "../../api/auth";
 import { useAuthStore } from "../../store/auth";
+import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -78,45 +79,59 @@ export default function AuthStartScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F9FAFB" },
+  safe: { flex: 1, backgroundColor: COLORS.background },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 24,
     justifyContent: "center",
   },
-  title: { fontSize: 24, fontWeight: "800", marginBottom: 8, color: "#111827" },
-  subtitle: { fontSize: 14, color: "#6B7280", marginBottom: 24 },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    marginBottom: 10,
+    color: COLORS.textMain,
+    lineHeight: 38,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: COLORS.textSub,
+    marginBottom: 32,
+    lineHeight: 24,
+  },
   primary: {
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#0ACF83",
+    height: 56,
+    borderRadius: SIZES.radius.xl,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.medium,
   },
   primaryText: {
-    color: "#fff",
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: 17,
     fontWeight: "700",
   },
   secondary: {
-    marginTop: 12,
+    marginTop: 16,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   secondaryText: {
-    color: "#4B5563",
+    color: COLORS.textSub,
     fontSize: 14,
     textDecorationLine: "underline",
+    fontWeight: "500",
   },
 
   dev: {
-    marginTop: 18,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "#111827",
+    marginTop: 24,
+    height: 48,
+    borderRadius: SIZES.radius.lg,
+    backgroundColor: COLORS.textMain,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.soft,
   },
-  devText: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  devText: { color: COLORS.white, fontSize: 13, fontWeight: "700" },
 });

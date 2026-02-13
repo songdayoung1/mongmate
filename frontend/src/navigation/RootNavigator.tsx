@@ -60,7 +60,11 @@ export default function RootNavigator() {
       <KeyboardDismissWrapper>
         <Stack.Navigator
           key={isAuthed ? "authed" : "guest"}
-          screenOptions={{ headerShown: false, headerTitleAlign: "center" }}
+          screenOptions={{
+            headerShown: false,
+            headerTitleAlign: "center",
+            animation: "slide_from_right",
+          }}
         >
           {isAuthed ? (
             <>

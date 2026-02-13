@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Pressable,
   RefreshControl,
   Alert,
 } from "react-native";
@@ -13,6 +12,8 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import TopHeader from "../../components/TopHeader";
+import AnimatedButton from "../../components/AnimatedButton";
+import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
 import type { ChatStackParamList } from "../../navigation/ChatStackNavigator";
 import { loadChatRooms, type ChatRoomListItemDto } from "../../api/chat";
 import { useAuthStore } from "../../store/auth";
@@ -47,7 +48,7 @@ function formatTimeFromIso(iso: string) {
 
 function clampPreview(s?: string) {
   if (!s) return "대화를 시작해보세요";
-  return s.length > 40 ? s.slice(0, 40) + "…" : s;
+  return s.length > 35 ? s.slice(0, 35) + "…" : s;
 }
 
 function dtoToRoomItem(dto: ChatRoomListItemDto): RoomItem {
@@ -70,20 +71,13 @@ export default function ChatListScreen() {
   const fetchList = React.useCallback(async () => {
     setRefreshing(true);
     try {
-      console.log("store token:", useAuthStore.getState().accessToken);
       const list = await loadChatRooms();
-
       const items = list.map(dtoToRoomItem);
       items.sort((a, b) => b.updatedAtTs - a.updatedAtTs);
-
       setRooms(items);
     } catch (e: any) {
       console.log("❌ loadChatRooms error:", e?.message ?? e);
-      Alert.alert(
-        "채팅방 목록 불러오기 실패",
-        e?.message ?? "서버 오류/인증 오류",
-      );
-      setRooms([]);
+      // Quiet fail or show toast
     } finally {
       setRefreshing(false);
     }
@@ -102,6 +96,36 @@ export default function ChatListScreen() {
     });
   };
 
+  const renderItem = ({ item }: { item: RoomItem }) => (
+    <AnimatedButton
+      style={styles.item}
+      activeOpacity={0.95}
+      onPress={() => onPressRoom(item)}
+    >
+      <View style={styles.avatarPlaceholder} />
+
+      <View style={styles.content}>
+        <View style={styles.topRow}>
+          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.time}>{item.timeText}</Text>
+        </View>
+
+        <View style={styles.bottomRow}>
+          <Text style={styles.preview} numberOfLines={1}>
+            {clampPreview(item.lastMessage)}
+          </Text>
+          {item.unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {item.unreadCount > 99 ? "99+" : item.unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </AnimatedButton>
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <TopHeader title="채팅" showBack={false} />
@@ -111,77 +135,107 @@ export default function ChatListScreen() {
         keyExtractor={(r) => r.roomId}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchList} />
+          <RefreshControl refreshing={refreshing} onRefresh={fetchList} tintColor={COLORS.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>채팅방이 없어요</Text>
+            <Text style={styles.emptyTitle}>채팅방이 없어요 텅!</Text>
             <Text style={styles.emptySub}>
-              (서버에서 빈 배열을 주거나 인증이 실패하면 여기로 옵니다)
+              산책 메이트와 대화를 시작해보세요.
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <Pressable style={styles.item} onPress={() => onPressRoom(item)}>
-            <View style={styles.left}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.preview} numberOfLines={1}>
-                {clampPreview(item.lastMessage)}
-              </Text>
-            </View>
-
-            <View style={styles.right}>
-              <Text style={styles.time}>{item.timeText}</Text>
-              {item.unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {item.unreadCount > 99 ? "99+" : item.unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </Pressable>
-        )}
+        renderItem={renderItem}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
-  list: { padding: 12, gap: 10 },
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  list: { paddingHorizontal: 20, paddingVertical: 12, gap: 12 },
 
   item: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    ...SHADOWS.soft,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
-    justifyContent: "space-between",
+    borderColor: COLORS.border,
   },
-  left: { flex: 1, paddingRight: 10 },
-  right: { alignItems: "flex-end", gap: 6 },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.background, // Placeholder color
+    marginRight: 14,
+  },
 
-  title: { fontSize: 15, fontWeight: "800", color: "#111827" },
-  preview: { fontSize: 13, color: "#6B7280", marginTop: 4 },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 4,
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-  time: { fontSize: 12, color: "#6B7280", fontWeight: "700" },
+  title: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.textMain,
+    flex: 1,
+    marginRight: 8,
+  },
+  time: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: "500",
+  },
+
+  preview: {
+    fontSize: 14,
+    color: COLORS.textSub,
+    flex: 1,
+    marginRight: 8,
+  },
 
   badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: "#0ACF83",
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
-  badgeText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+  badgeText: {
+    color: COLORS.white,
+    fontWeight: "800",
+    fontSize: 11,
+  },
 
-  empty: { paddingTop: 80, alignItems: "center", gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: "#111827" },
-  emptySub: { fontSize: 13, color: "#6B7280", textAlign: "center" },
+  empty: {
+    paddingTop: 100,
+    alignItems: "center",
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.textMain,
+  },
+  emptySub: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+  },
 });

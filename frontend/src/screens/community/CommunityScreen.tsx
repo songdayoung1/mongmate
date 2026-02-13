@@ -8,14 +8,14 @@ import {
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import TopHeader from "../../components/TopHeader";
+import { Plus } from "lucide-react-native";
+import { usePostStore, type HomePost, type PostType } from "../../store/posts";
+import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
+import AnimatedButton from "../../components/AnimatedButton";
 import { useNavigation } from "@react-navigation/native";
 
-import TopHeader from "../../components/TopHeader";
-import { usePostStore, type HomePost, type PostType } from "../../store/posts";
-
 type FilterTab = "ALL" | "WALK" | "DOG_CAFE";
-
-const PRIMARY = "#0ACF83";
 
 export default function CommunityScreen() {
   const navigation = useNavigation<any>();
@@ -41,14 +41,29 @@ export default function CommunityScreen() {
 
   // ✅ 홈과 동일한 카드 UI (필드도 posts.ts와 동일)
   const renderPostItem = ({ item }: { item: HomePost }) => {
-    const typeLabel = item.type === "WALK" ? "산책" : "애견카페";
+    const isWalk = item.type === "WALK";
+    const typeLabel = isWalk ? "산책" : "애견카페";
+    const typeColor = isWalk ? "#0ACF83" : "#FF9F43";
 
     return (
-      <TouchableOpacity style={styles.postCard} activeOpacity={0.9}>
+      <AnimatedButton
+        style={styles.postCard}
+        activeOpacity={0.9}
+        onPress={() => {
+          // 상세로 이동 (홈과 동일하게)
+          navigation.navigate("PostDetail", { postId: item.id });
+        }}
+      >
         <View style={styles.postThumbnail} />
         <View style={styles.postContent}>
           <View style={styles.postHeaderRow}>
-            <Text style={styles.postTypeBadge}>{typeLabel}</Text>
+            <View style={[styles.postTypeBadge, {
+              backgroundColor: isWalk ? COLORS.primaryLight : COLORS.secondaryLight,
+              borderColor: isWalk ? COLORS.primary : COLORS.secondary,
+              borderWidth: 1,
+            }]}>
+              <Text style={[styles.postTypeText, { color: typeColor }]}>{typeLabel}</Text>
+            </View>
             <Text style={styles.postDeadline}>{item.deadlineText}</Text>
           </View>
 
@@ -61,7 +76,7 @@ export default function CommunityScreen() {
             <Text style={styles.postAuthor}>by {item.authorNickname}</Text>
           </View>
         </View>
-      </TouchableOpacity>
+      </AnimatedButton>
     );
   };
 
@@ -74,9 +89,9 @@ export default function CommunityScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ✅ 홈과 동일한 상단 액션(필터 + 글쓰기 버튼) */}
+        {/* ✅ 홈과 동일한 상단 액션(필터) - 글쓰기 버튼은 FAB로 이동 */}
         <View style={styles.actionsRow}>
-          <View style={styles.filterTabs}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             <FilterChip
               label="전체"
               active={activeFilter === "ALL"}
@@ -92,15 +107,7 @@ export default function CommunityScreen() {
               active={activeFilter === "DOG_CAFE"}
               onPress={() => setActiveFilter("DOG_CAFE")}
             />
-          </View>
-
-          <TouchableOpacity
-            style={styles.writeButton}
-            activeOpacity={0.9}
-            onPress={handlePressWrite}
-          >
-            <Text style={styles.writeButtonText}>+ 글쓰기</Text>
-          </TouchableOpacity>
+          </ScrollView>
         </View>
 
         {/* ✅ 홈/커뮤니티 공유 글 리스트 */}
@@ -127,6 +134,15 @@ export default function CommunityScreen() {
           />
         </View>
       </ScrollView>
+
+      {/* Floating Action Button */}
+      <AnimatedButton
+        style={styles.fab}
+        activeOpacity={0.9}
+        onPress={handlePressWrite}
+      >
+        <Plus size={28} color="#FFFFFF" />
+      </AnimatedButton>
     </SafeAreaView>
   );
 }
@@ -141,7 +157,7 @@ function FilterChip({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
+    <AnimatedButton
       style={[styles.chip, active && styles.chipActive]}
       activeOpacity={0.9}
       onPress={onPress}
@@ -149,74 +165,63 @@ function FilterChip({
       <Text style={[styles.chipText, active && styles.chipTextActive]}>
         {label}
       </Text>
-    </TouchableOpacity>
+    </AnimatedButton>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F9FAFB" },
+  safe: { flex: 1, backgroundColor: COLORS.background },
 
   actionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 4,
   },
-
-  filterTabs: { flexDirection: "row", gap: 8 },
 
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    borderRadius: SIZES.radius.circle,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
   },
   chipActive: {
-    backgroundColor: "rgba(10, 207, 131, 0.10)",
-    borderColor: "rgba(10, 207, 131, 0.35)",
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    ...SHADOWS.medium,
   },
-  chipText: { fontSize: 13, fontWeight: "800", color: "#6B7280" },
-  chipTextActive: { color: "#0A8F5B" },
-
-  // ✅ 홈과 같은 글쓰기 버튼 UI
-  writeButton: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: PRIMARY,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  writeButtonText: { color: "#fff", fontSize: 13, fontWeight: "900" },
+  chipText: { fontSize: 13, fontWeight: "700", color: COLORS.textSub },
+  chipTextActive: { color: COLORS.white },
 
   listHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    paddingHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 10,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 12,
   },
-  listTitle: { fontSize: 15, fontWeight: "900", color: "#111827" },
-  listMore: { fontSize: 12, fontWeight: "700", color: "#6B7280" },
+  listTitle: { fontSize: 18, fontWeight: "800", color: COLORS.textMain },
+  listMore: { fontSize: 13, fontWeight: "600", color: COLORS.textSub },
 
   // ✅ 홈과 동일한 카드 스타일
   postCard: {
     flexDirection: "row",
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: COLORS.border,
     overflow: "hidden",
+    marginHorizontal: 4, // shadow clipping
+    ...SHADOWS.card,
   },
   postThumbnail: {
-    width: 72,
-    backgroundColor: "#F3F4F6",
+    width: 80,
+    backgroundColor: COLORS.background,
   },
-  postContent: { flex: 1, padding: 12, gap: 6 },
+  postContent: { flex: 1, padding: 16, gap: 8 },
 
   postHeaderRow: {
     flexDirection: "row",
@@ -224,40 +229,62 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   postTypeBadge: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: "#0A8F5B",
-    backgroundColor: "rgba(10, 207, 131, 0.12)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  postDeadline: { fontSize: 12, color: "#6B7280", fontWeight: "700" },
+  postTypeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  postDeadline: { fontSize: 12, color: COLORS.textSub, fontWeight: "600" },
 
-  postTitle: { fontSize: 14, fontWeight: "900", color: "#111827" },
+  postTitle: { fontSize: 16, fontWeight: "700", color: COLORS.textMain, lineHeight: 22 },
 
   postMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
+    marginTop: 4,
   },
-  postRegion: { fontSize: 12, color: "#6B7280", fontWeight: "700" },
-  postAuthor: { fontSize: 12, color: "#9CA3AF", fontWeight: "700" },
+  postRegion: { fontSize: 13, color: COLORS.textSub, fontWeight: "500" },
+  postAuthor: { fontSize: 13, color: COLORS.textMuted, fontWeight: "500" },
 
   emptyWrap: {
-    paddingVertical: 28,
+    paddingVertical: 40,
     alignItems: "center",
   },
   emptyText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.textMain,
+    marginBottom: 6,
   },
   emptySubText: {
-    fontSize: 12,
-    color: "#6B7280",
+    fontSize: 14,
+    color: COLORS.textMuted,
     textAlign: "center",
+  },
+
+  // FAB
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
 });

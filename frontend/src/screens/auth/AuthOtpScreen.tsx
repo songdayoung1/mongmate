@@ -18,6 +18,8 @@ import { sendSmsCode, verifySmsCode, signup, login } from "../../api/auth";
 import { deriveDobAndGender } from "../../utils/koreanId";
 import { useAuthStore } from "../../store/auth";
 import type { AuthState } from "../../store/auth";
+import AnimatedButton from "../../components/AnimatedButton";
+import { COLORS, SIZES, SHADOWS } from "../../constants/theme";
 
 // ✅ 개발모드에서는 문자 인증 우회
 const SMS_BYPASS = __DEV__;
@@ -217,7 +219,7 @@ export default function AuthOtpScreen() {
           editable={!phoneLocked}
         />
 
-        <TouchableOpacity
+        <AnimatedButton
           style={[
             styles.requestButton,
             !canRequestOtp && styles.requestButtonDisabled,
@@ -229,7 +231,7 @@ export default function AuthOtpScreen() {
           <Text style={styles.requestText}>
             {phoneLocked ? "인증번호 다시 받기" : "인증번호 받기"}
           </Text>
-        </TouchableOpacity>
+        </AnimatedButton>
 
         <View style={styles.otpHeader}>
           <Text style={styles.label}>인증번호</Text>
@@ -247,7 +249,7 @@ export default function AuthOtpScreen() {
           maxLength={6}
         />
 
-        <TouchableOpacity
+        <AnimatedButton
           style={[
             styles.verifyButton,
             !canVerify && styles.verifyButtonDisabled,
@@ -259,21 +261,21 @@ export default function AuthOtpScreen() {
           <Text style={styles.verifyText}>
             {mode === "signup" ? "가입 완료하기" : "로그인"}
           </Text>
-        </TouchableOpacity>
+        </AnimatedButton>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 24 },
   devBypassBanner: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: "#FEF3C7", // Consider theme constant if available
     borderColor: "#F59E0B",
     borderWidth: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: SIZES.radius.sm,
     marginBottom: 12,
   },
   devBypassText: {
@@ -282,63 +284,74 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#4B5563",
-    marginTop: 16,
-    marginBottom: 6,
+    color: COLORS.textSub,
+    marginTop: 20,
+    marginBottom: 8,
   },
   input: {
-    borderRadius: 12,
+    borderRadius: SIZES.radius.md,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
-    color: "#111827",
+    color: COLORS.textMain,
+    ...Platform.select({
+      ios: SHADOWS.soft,
+      android: { elevation: 1 }
+    }),
   },
   requestButton: {
-    marginTop: 16,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "#0ACF83",
+    marginTop: 20,
+    height: 48,
+    borderRadius: SIZES.radius.lg,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.soft,
   },
   requestButtonDisabled: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: COLORS.textMuted,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   requestText: {
-    color: "#fff",
-    fontSize: 14,
+    color: COLORS.white,
+    fontSize: 15,
     fontWeight: "700",
   },
   otpHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginTop: 20,
+    marginTop: 24,
   },
   timer: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#EF4444",
+    color: COLORS.error,
+    marginBottom: 8,
   },
   verifyButton: {
-    marginTop: 20,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#0ACF83",
+    marginTop: 32,
+    height: 56,
+    borderRadius: SIZES.radius.xl,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.medium,
   },
   verifyButtonDisabled: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: COLORS.textMuted,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   verifyText: {
-    color: "#fff",
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: "700",
   },
 });
