@@ -2,19 +2,24 @@ import React, { useMemo } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import TopHeader from "../../components/TopHeader";
-import { useLogout } from "../../hooks/auth";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
+import { ChevronRight, Settings, Bell, FileText, LogOut, MapPin, Dog } from "lucide-react-native";
+
+import TopHeader from "../../components/TopHeader";
+import AnimatedButton from "../../components/AnimatedButton";
+import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
+import { useLogout } from "../../hooks/auth";
 import { useProfile } from "../../hooks/profile";
+import { useUserStore } from "../../store/user"; // For stats mock
+import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 function maskPhone(phone: string | null | undefined) {
   if (!phone) return "-";
@@ -28,10 +33,15 @@ function yyyyMMdd(iso: string | null | undefined) {
   return iso.includes("T") ? iso.split("T")[0] : iso;
 }
 
-export default function PageScreen() {
+export default function MyPageScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const logoutMut = useLogout?.() ?? { mutateAsync: async () => {} };
+  const logoutMut = useLogout?.() ?? { mutateAsync: async () => { } };
+
+  // Real profile data
   const { data, isLoading, error, refetch } = useProfile();
+
+  // Mock stats from store for display improvements
+  const { stats } = useUserStore();
 
   const guardian = data?.guardianProfile;
   const neighborhood = data?.neighborhood;
@@ -43,292 +53,405 @@ export default function PageScreen() {
   );
 
   const onLogout = async () => {
-    try {
-      await logoutMut.mutateAsync();
-      Alert.alert("로그아웃", "로그아웃 되었습니다.");
-    } catch {
-      Alert.alert("오류", "로그아웃 중 문제가 발생했습니다.");
-    }
+    Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "로그아웃",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logoutMut.mutateAsync();
+          } catch {
+            Alert.alert("오류", "로그아웃 중 문제가 발생했습니다.");
+          }
+        },
+      },
+    ]);
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <TopHeader title="마이페이지" />
+        <View style={styles.center}>
+          <ActivityIndicator color={COLORS.primary} size="large" />
+          <Text style={styles.muted}>내 정보를 불러오는 중…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <TopHeader title="마이페이지" />
+        <View style={styles.center}>
+          <Text style={styles.errorTitle}>정보를 불러올 수 없어요 😢</Text>
+          <AnimatedButton style={styles.retryBtn} onPress={() => refetch()}>
+            <Text style={styles.retryText}>다시 시도</Text>
+          </AnimatedButton>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
-      <TopHeader
-        title="마이페이지"
-        subtitle="내 프로필/반려견 정보를 확인해요"
-        backgroundColor="#FFFFFF"
-      />
+      <TopHeader title="마이페이지" />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       >
-        {isLoading && (
-          <View style={styles.center}>
-            <ActivityIndicator />
-            <Text style={styles.muted}>내 정보를 불러오는 중…</Text>
-          </View>
-        )}
-
-        {!!error && !isLoading && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>불러오기에 실패했어요</Text>
-            <Text style={styles.errorText}>
-              네트워크/서버 상태를 확인해주세요.
-            </Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
-              <Text style={styles.retryText}>다시 시도</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* 내 프로필 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-            >
-              <Text style={styles.sectionTitle}>내 프로필</Text>
-              {profileNeed && (
-                <View style={styles.badgeWarn}>
-                  <Text style={styles.badgeWarnText}>설정 필요</Text>
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity onPress={() => nav.navigate("EditMyProfile")}>
-              <Text style={styles.sectionAction}>수정</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.card}>
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <View style={styles.avatar} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.nickname}>
-                  {guardian?.nickname?.trim()
-                    ? guardian.nickname
-                    : "닉네임을 설정해주세요"}
-                </Text>
-                <Text style={styles.bio} numberOfLines={2}>
-                  {guardian?.bio?.trim()
-                    ? guardian.bio
-                    : "소개글을 작성하면 매칭이 쉬워져요"}
-                </Text>
-
-                <View style={{ height: 10 }} />
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>연락처</Text>
-                  <Text style={styles.infoValue}>
-                    {maskPhone(data?.user.phoneNumber)}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>가입일</Text>
-                  <Text style={styles.infoValue}>
-                    {yyyyMMdd(data?.user.createdAt)}
-                  </Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>내 위치</Text>
-                  <Text style={styles.infoValue}>
-                    {neighborhood
-                      ? `regionId: ${neighborhood.regionId}${neighborhood.radiusMeters ? ` · 반경 ${neighborhood.radiusMeters}m` : ""}`
-                      : "설정 필요"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* 반려견 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>반려견</Text>
-            <TouchableOpacity onPress={() => nav.navigate("DogManage")}>
-              <Text style={styles.sectionAction}>관리</Text>
-            </TouchableOpacity>
-          </View>
-
-          {dogs.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyTitle}>등록된 반려견이 없어요</Text>
-              <Text style={styles.muted}>
-                산책 메이트를 위해 반려견 정보를 추가해보세요.
+        {/* 1. Profile Card */}
+        <AnimatedButton
+          style={styles.profileCard}
+          activeOpacity={0.95}
+          onPress={() => nav.navigate("EditMyProfile")}
+        >
+          <View style={styles.profileContent}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {guardian?.nickname?.[0] ?? "G"}
               </Text>
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={() => nav.navigate("DogManage")}
-              >
-                <Text style={styles.primaryBtnText}>반려견 추가</Text>
-              </TouchableOpacity>
             </View>
-          ) : (
-            dogs.map((d) => (
-              <View key={d.id} style={styles.dogCard}>
-                <View style={styles.dogAvatar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.dogName}>{d.name}</Text>
-                  <Text style={styles.dogMeta}>
-                    {[
-                      d.breed,
-                      d.ageYears != null ? `${d.ageYears}살` : null,
-                      d.genderCode ? `성별:${d.genderCode}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Text>
-                  <Text style={styles.dogMeta}>
-                    {[
-                      d.isNeutered != null
-                        ? d.isNeutered
-                          ? "중성화 O"
-                          : "중성화 X"
-                        : null,
-                      d.vaccinationNote,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Text>
-                  {!!d.dispositionText?.trim() && (
-                    <Text style={styles.dogMeta}>
-                      성격: {d.dispositionText}
-                    </Text>
-                  )}
-                </View>
+            <View style={styles.profileInfo}>
+              <View style={styles.nameRow}>
+                <Text style={styles.nickname}>
+                  {guardian?.nickname || "닉네임 설정 필요"}
+                </Text>
+                {profileNeed && <View style={styles.badgeWarn} />}
               </View>
-            ))
-          )}
+              <Text style={styles.bio} numberOfLines={1}>
+                {guardian?.bio || "자기소개를 입력해주세요"}
+              </Text>
+              <View style={styles.locationRow}>
+                <MapPin size={12} color={COLORS.textMuted} />
+                <Text style={styles.locationText}>
+                  {neighborhood?.regionId
+                    ? `지역코드 ${neighborhood.regionId}`
+                    : "위치 설정 필요"}
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color={COLORS.textMuted} />
+          </View>
+        </AnimatedButton>
+
+        {/* 2. Stats Dashboard */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>이번 달 산책</Text>
+            <Text style={styles.statValue}>{stats.monthWalkCount}회</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>총 산책 거리</Text>
+            <Text style={styles.statValue}>{stats.totalDistanceKm}km</Text>
+          </View>
         </View>
 
-        {/* 로그아웃 */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
-            <Text style={styles.logoutText}>로그아웃</Text>
-          </TouchableOpacity>
+        {/* 3. Dogs Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>나의 반려견 🐾</Text>
+          <AnimatedButton onPress={() => nav.navigate("DogManage")}>
+            <Text style={styles.sectionAction}>관리</Text>
+          </AnimatedButton>
         </View>
+
+        {dogs.length === 0 ? (
+          <AnimatedButton
+            style={styles.emptyDogCard}
+            onPress={() => nav.navigate("DogManage")}
+          >
+            <View style={[styles.dogAvatar, { backgroundColor: COLORS.background }]}>
+              <Dog size={24} color={COLORS.textMuted} />
+            </View>
+            <Text style={styles.emptyDogText}>반려견을 등록해주세요</Text>
+            <ChevronRight size={16} color={COLORS.textMuted} />
+          </AnimatedButton>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 4 }}>
+            {dogs.map((dog) => (
+              <AnimatedButton key={dog.id} style={styles.dogCard} activeOpacity={0.9} onPress={() => nav.navigate("DogManage")}>
+                <View style={styles.dogAvatarInput} />
+                <View style={styles.dogInfo}>
+                  <Text style={styles.dogName}>{dog.name}</Text>
+                  <Text style={styles.dogBreed}>{dog.breed}</Text>
+                </View>
+              </AnimatedButton>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* 4. Menu List */}
+        <View style={styles.menuContainer}>
+          <MenuItem icon={FileText} label="내가 쓴 글" onPress={() => { }} />
+          <MenuItem icon={Bell} label="알림 설정" onPress={() => { }} />
+          <MenuItem icon={Settings} label="앱 설정" onPress={() => { }} />
+        </View>
+
+        {/* 5. Logout */}
+        <AnimatedButton style={styles.logoutButton} onPress={onLogout}>
+          <LogOut size={18} color={COLORS.error} />
+          <Text style={styles.logoutText}>로그아웃</Text>
+        </AnimatedButton>
+        <Text style={styles.versionText}>버전 1.0.0</Text>
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function MenuItem({ icon: Icon, label, onPress }: { icon: any, label: string, onPress: () => void }) {
+  return (
+    <AnimatedButton style={styles.menuItem} onPress={onPress}>
+      <View style={styles.menuLeft}>
+        <View style={styles.menuIconBox}>
+          <Icon size={18} color={COLORS.textMain} />
+        </View>
+        <Text style={styles.menuLabel}>{label}</Text>
+      </View>
+      <ChevronRight size={18} color={COLORS.textMuted} />
+    </AnimatedButton>
+  )
+}
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F9FAFB" },
-  scroll: { flex: 1, paddingHorizontal: 16 },
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { flex: 1, paddingHorizontal: 20 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  muted: { color: COLORS.textMuted, marginTop: 12 },
 
-  section: { marginTop: 16 },
-  sectionHeaderRow: {
+  // 1. Profile
+  profileCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    ...SHADOWS.medium,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)",
+  },
+  profileContent: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginBottom: 8,
+    alignItems: "center",
+    gap: 16,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#111827" },
-  sectionAction: { fontSize: 13, color: "#0ACF83", fontWeight: "700" },
-
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-
   avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: COLORS.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: COLORS.primary,
   },
-  nickname: { fontSize: 17, fontWeight: "900", color: "#111827" },
-  bio: { fontSize: 12, color: "#4B5563", marginTop: 6 },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  profileInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  nickname: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.textMain,
+  },
+  badgeWarn: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.error,
+  },
+  bio: {
+    fontSize: 13,
+    color: COLORS.textSub,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  locationText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: "500",
+  },
 
-  infoRow: {
+  // 2. Stats
+  statsContainer: {
+    flexDirection: "row",
+    marginTop: 24,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 20,
+    ...SHADOWS.soft,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+    gap: 6,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: COLORS.textSub,
+    fontWeight: "600",
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  divider: {
+    width: 1,
+    height: 30,
+    backgroundColor: COLORS.border,
+  },
+
+  // 3. Dogs
+  sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 3,
-  },
-  infoLabel: { fontSize: 12, color: "#6B7280" },
-  infoValue: { fontSize: 12, color: "#111827", fontWeight: "600" },
-
-  dogCard: {
-    flexDirection: "row",
-    gap: 10,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 8,
-    elevation: 1,
-  },
-  dogAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB",
-  },
-  dogName: { fontSize: 15, fontWeight: "900", color: "#111827" },
-  dogMeta: { fontSize: 12, color: "#6B7280", marginTop: 3 },
-
-  emptyWrap: { paddingVertical: 20, alignItems: "center" },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 6,
-  },
-  muted: { fontSize: 12, color: "#6B7280" },
-  primaryBtn: {
-    marginTop: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: "#0ACF83",
-  },
-  primaryBtnText: { color: "#fff", fontWeight: "900" },
-
-  logoutBtn: {
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#FCA5A5",
     alignItems: "center",
+    marginTop: 32,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  logoutText: { fontSize: 14, color: "#EF4444", fontWeight: "800" },
-
-  center: { paddingVertical: 20, alignItems: "center", gap: 8 },
-
-  errorCard: {
-    marginTop: 16,
-    backgroundColor: "#FFF1F2",
-    borderRadius: 16,
-    padding: 14,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.textMain,
+  },
+  sectionAction: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  emptyDogCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     borderWidth: 1,
-    borderColor: "#FDA4AF",
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
   },
-  errorTitle: { fontSize: 14, fontWeight: "900", color: "#9F1239" },
-  errorText: { fontSize: 12, color: "#9F1239", marginTop: 6 },
-  retryBtn: {
-    marginTop: 10,
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: "#FB7185",
+  emptyDogText: {
+    fontSize: 14,
+    color: COLORS.textSub,
+    fontWeight: "600",
+    flex: 1,
   },
-  retryText: { color: "#fff", fontWeight: "900" },
+  dogCard: {
+    width: 140,
+    backgroundColor: COLORS.white,
+    padding: 12,
+    borderRadius: 20,
+    ...SHADOWS.soft,
+    gap: 10,
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  dogAvatarInput: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.background,
+  },
+  dogInfo: {
+    alignItems: "center",
+    gap: 2,
+  },
+  dogName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textMain,
+  },
+  dogBreed: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
 
-  badgeWarn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: "#FEF3C7",
+  // 4. Menu
+  menuContainer: {
+    marginTop: 32,
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    ...SHADOWS.soft,
   },
-  badgeWarnText: { fontSize: 11, color: "#92400E", fontWeight: "900" },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.background,
+  },
+  menuLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  menuIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.textMain,
+  },
+
+  // 5. Logout
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 32,
+    gap: 8,
+    paddingVertical: 12,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.error,
+  },
+  versionText: {
+    textAlign: "center",
+    marginTop: 8,
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+
+  // Error/Retry
+  errorTitle: { fontSize: 16, fontWeight: "700", marginBottom: 16 },
+  retryBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  retryText: { color: COLORS.white, fontWeight: "700" },
 });

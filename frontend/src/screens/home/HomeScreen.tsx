@@ -16,12 +16,14 @@ import { MapPin, Plus, Search, Bell, Dog, Coffee } from "lucide-react-native";
 
 import { usePostStore, HomePost } from "../../store/posts";
 import { useUserStore } from "../../store/user";
+import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
+import AnimatedButton from "../../components/AnimatedButton";
 
 type FilterTab = "ALL" | "WALK" | "DOG_CAFE";
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
-  
+
   // Stores
   const { posts } = usePostStore();
   const { profile, stats } = useUserStore();
@@ -39,7 +41,7 @@ export default function HomeScreen() {
   }, []);
 
   const handlePressWrite = () => {
-    navigation.navigate("CreatePost"); 
+    navigation.navigate("CreatePost");
   };
 
   const filteredPosts = posts.filter((post) => {
@@ -54,13 +56,17 @@ export default function HomeScreen() {
     const typeLabel = isWalk ? "산책" : "애견카페";
 
     return (
-      <TouchableOpacity 
-        style={styles.card} 
+      <AnimatedButton
+        style={styles.card}
         activeOpacity={0.9}
         onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <View style={[styles.typeBadge, { backgroundColor: typeColor + "15" }]}>
+          <View style={[styles.typeBadge, {
+            backgroundColor: isWalk ? COLORS.primaryLight : COLORS.secondaryLight,
+            borderColor: isWalk ? COLORS.primary : COLORS.secondary,
+            borderWidth: 1,
+          }]}>
             <TypeIcon size={12} color={typeColor} strokeWidth={3} />
             <Text style={[styles.typeText, { color: typeColor }]}>{typeLabel}</Text>
           </View>
@@ -68,7 +74,7 @@ export default function HomeScreen() {
         </View>
 
         <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-        
+
         <View style={styles.cardMeta}>
           <View style={styles.metaRow}>
             <MapPin size={14} color="#9CA3AF" />
@@ -76,7 +82,7 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.authorText}>by {item.authorNickname}</Text>
         </View>
-      </TouchableOpacity>
+      </AnimatedButton>
     );
   };
 
@@ -88,12 +94,12 @@ export default function HomeScreen() {
           <Text style={styles.greetingSub}>반가워요, {profile.nickname}님! 👋</Text>
           <Text style={styles.greetingMain}>오늘도 댕댕이와 함께{"\n"}즐거운 하루 되세요</Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
-           {/* Placeholder for Avatar */}
+        <AnimatedButton style={styles.profileButton}>
+          {/* Placeholder for Avatar */}
           <View style={styles.avatarPlaceholder}>
-             <Text style={styles.avatarText}>{profile.nickname[0]}</Text>
+            <Text style={styles.avatarText}>{profile.nickname[0]}</Text>
           </View>
-        </TouchableOpacity>
+        </AnimatedButton>
       </View>
 
       {/* Dashboard Card */}
@@ -109,8 +115,8 @@ export default function HomeScreen() {
         </View>
         <View style={styles.divider} />
         <View style={styles.statItem}>
-           <View style={[styles.statIconWrap, { backgroundColor: "#FF9F43" }]}>
-            <Dog size={20} color="#FFFFFF" />
+          <View style={[styles.statIconWrap, { backgroundColor: COLORS.secondary }]}>
+            <Dog size={20} color={COLORS.white} />
           </View>
           <View>
             <Text style={styles.statLabel}>총 산책 거리</Text>
@@ -120,26 +126,26 @@ export default function HomeScreen() {
       </View>
 
       {/* Filter Section */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
       >
-        <FilterChip 
-          label="전체" 
-          active={activeFilter === "ALL"} 
-          onPress={() => setActiveFilter("ALL")} 
+        <FilterChip
+          label="전체"
+          active={activeFilter === "ALL"}
+          onPress={() => setActiveFilter("ALL")}
         />
-        <FilterChip 
-          label="산책 메이트" 
-          active={activeFilter === "WALK"} 
-          onPress={() => setActiveFilter("WALK")} 
+        <FilterChip
+          label="산책 메이트"
+          active={activeFilter === "WALK"}
+          onPress={() => setActiveFilter("WALK")}
           icon={<Dog size={14} color={activeFilter === "WALK" ? "#FFF" : "#6B7280"} />}
         />
-        <FilterChip 
-          label="애견카페" 
-          active={activeFilter === "DOG_CAFE"} 
-          onPress={() => setActiveFilter("DOG_CAFE")} 
+        <FilterChip
+          label="애견카페"
+          active={activeFilter === "DOG_CAFE"}
+          onPress={() => setActiveFilter("DOG_CAFE")}
           icon={<Coffee size={14} color={activeFilter === "DOG_CAFE" ? "#FFF" : "#6B7280"} />}
         />
       </ScrollView>
@@ -157,13 +163,13 @@ export default function HomeScreen() {
           <Text style={styles.locationText}>{profile.region}</Text>
         </View>
         <View style={styles.topActions}>
-          <TouchableOpacity style={styles.iconButton}>
+          <AnimatedButton style={styles.iconButton}>
             <Search size={22} color="#1F2937" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
+          </AnimatedButton>
+          <AnimatedButton style={styles.iconButton}>
             <Bell size={22} color="#1F2937" />
             <View style={styles.badge} />
-          </TouchableOpacity>
+          </AnimatedButton>
         </View>
       </View>
 
@@ -188,13 +194,13 @@ export default function HomeScreen() {
       />
 
       {/* Floating Action Button */}
-      <TouchableOpacity 
-        style={styles.fab} 
-        activeOpacity={0.9} 
+      <AnimatedButton
+        style={styles.fab}
+        activeOpacity={0.9}
         onPress={handlePressWrite}
       >
         <Plus size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      </AnimatedButton>
     </SafeAreaView>
   );
 }
@@ -203,21 +209,21 @@ export default function HomeScreen() {
 
 function FilterChip({ label, active, onPress, icon }: { label: string; active: boolean; onPress: () => void; icon?: React.ReactNode }) {
   return (
-    <TouchableOpacity
+    <AnimatedButton
       onPress={onPress}
       style={[styles.chip, active && styles.chipActive]}
       activeOpacity={0.8}
     >
       {icon && <View style={{ marginRight: 6 }}>{icon}</View>}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </TouchableOpacity>
+    </AnimatedButton>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.background,
   },
   topBar: {
     flexDirection: "row",
@@ -229,216 +235,234 @@ const styles = StyleSheet.create({
   locationChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E6FFFA",
+    backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingVertical: 8,
+    borderRadius: SIZES.radius.circle,
     gap: 4,
   },
   locationText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0ACF83",
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.primaryDark,
   },
   topActions: {
     flexDirection: "row",
-    gap: 16,
+    gap: 12,
   },
   iconButton: {
-    padding: 4,
+    padding: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius.circle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
   },
   badge: {
     position: "absolute",
-    top: 4,
-    right: 4,
+    top: 6,
+    right: 6,
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#EF4444",
+    backgroundColor: COLORS.error,
   },
   listContent: {
     paddingBottom: 100, // Space for FAB
   },
   headerContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 16,
   },
   greetingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginTop: 10,
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 24,
   },
   greetingSub: {
     fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 4,
+    color: COLORS.textSub,
+    marginBottom: 6,
+    fontWeight: "500",
   },
   greetingMain: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "800",
-    color: "#111827",
-    lineHeight: 30,
+    color: COLORS.textMain,
+    lineHeight: 34,
   },
   profileButton: {
     marginTop: 4,
+    ...SHADOWS.soft,
   },
   avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#F3F4F6",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderWidth: 2,
+    borderColor: COLORS.primaryLight,
   },
   avatarText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#9CA3AF",
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.primary,
   },
   dashboardCard: {
     flexDirection: "row",
-    backgroundColor: "#111827",
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: "#0ACF83",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    backgroundColor: COLORS.white,
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 32,
+    ...SHADOWS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
   statItem: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
   },
   statIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#0ACF83",
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: "500",
     color: "#9CA3AF",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.textMain,
   },
   divider: {
     width: 1,
-    height: "100%",
+    height: "80%",
     backgroundColor: "#374151",
-    marginHorizontal: 10,
+    marginHorizontal: 16,
+    alignSelf: "center",
   },
   filterRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 24,
+    paddingHorizontal: 4, // for shadow clipping
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    borderRadius: SIZES.radius.circle,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
   },
   chipActive: {
-    backgroundColor: "#111827", // Dark theme active state
-    borderColor: "#111827",
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    ...SHADOWS.medium,
   },
   chipText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#6B7280",
+    color: COLORS.textSub,
   },
   chipTextActive: {
-    color: "#FFFFFF",
+    color: COLORS.white,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.textMain,
+    marginBottom: 16,
   },
-  
+
   // Post Card Styles
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
     padding: 20,
     marginHorizontal: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    ...SHADOWS.card,
     borderWidth: 1,
-    borderColor: "#F3F4F6",
+    borderColor: COLORS.border,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   typeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
   },
   typeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
   },
   deadline: {
     fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "500",
+    color: COLORS.textSub,
+    fontWeight: "600",
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: "hidden",
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
-    color: "#1F2937",
-    lineHeight: 24,
-    marginBottom: 12,
+    color: COLORS.textMain,
+    lineHeight: 26,
+    marginBottom: 16,
   },
   cardMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 12,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
+    borderTopColor: COLORS.divider,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
   metaText: {
     fontSize: 13,
-    color: "#6B7280",
+    fontWeight: "500",
+    color: COLORS.textSub,
   },
   authorText: {
-    fontSize: 12,
-    color: "#9CA3AF",
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.textMuted,
   },
 
   // FAB
@@ -446,34 +470,36 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 24,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#0ACF83",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#0ACF83",
+    shadowColor: COLORS.primary,
     shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
-  
+
   // Empty State
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
   emptyText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: "700",
+    color: COLORS.textMain,
   },
   emptySub: {
-    marginTop: 4,
-    fontSize: 13,
-    color: "#9CA3AF",
+    marginTop: 6,
+    fontSize: 14,
+    color: COLORS.textMuted,
   },
 });

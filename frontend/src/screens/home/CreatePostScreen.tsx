@@ -7,11 +7,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import TopHeader from "../../components/TopHeader";
 import { PostType, usePostStore } from "../../store/posts";
+import { COLORS, SIZES, SHADOWS } from "../../constants/theme";
 
 export default function CreatePostScreen() {
   const navigation = useNavigation<any>();
@@ -174,71 +176,82 @@ function TypeChip({ label, active, onPress }: TypeChipProps) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.background,
   },
   scroll: {
     flex: 1,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#4B5563",
-    marginTop: 16,
-    marginBottom: 6,
+    color: COLORS.textMain,
+    marginTop: 20,
+    marginBottom: 8,
   },
   input: {
-    borderRadius: 12,
+    borderRadius: SIZES.radius.md,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: "#111827",
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: COLORS.textMain,
+    ...Platform.select({
+      ios: SHADOWS.soft,
+      android: { elevation: 1 }
+    }),
   },
   textarea: {
-    height: 140,
-    lineHeight: 20,
+    height: 160,
+    lineHeight: 22,
+    paddingTop: 16,
   },
   typeRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
   },
   typeChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: SIZES.radius.circle,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    ...SHADOWS.soft,
   },
   typeChipActive: {
-    borderColor: "#0ACF83",
-    backgroundColor: "#ECFDF3",
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+    ...SHADOWS.medium,
   },
   typeChipText: {
-    fontSize: 13,
-    color: "#6B7280",
+    fontSize: 14,
+    color: COLORS.textSub,
+    fontWeight: "500",
   },
   typeChipTextActive: {
-    color: "#0ACF83",
+    color: COLORS.primaryDark,
     fontWeight: "700",
   },
   submitButton: {
-    marginTop: 24,
-    marginBottom: 12,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#0ACF83",
+    marginTop: 32,
+    marginBottom: 20,
+    height: 56,
+    borderRadius: SIZES.radius.xl,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    ...SHADOWS.medium,
   },
   submitButtonDisabled: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: COLORS.textMuted,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   submitText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: "700",
   },
 });
