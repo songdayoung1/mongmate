@@ -39,9 +39,7 @@ out/
 ### env ###
 .env
 .env.local
-.env.production
-*.env
-!.env.example
 
-### Local docs ### 
-/docs/
+### docs ###
+docs/
+

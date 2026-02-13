@@ -17,10 +17,6 @@ export type SendChatPayload = {
   content: string;
 };
 
-// ✅ 서버 주소는 너희 환경에 맞게 조절
-// - Android emulator: 10.0.2.2
-// - iOS simulator: localhost
-// - 실기기: PC의 LAN IP로 바꿔야 함
 const HOST =
   Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080";
 
@@ -29,90 +25,116 @@ const WS_URL = `${HOST}/ws-chat`;
 let client: Client | null = null;
 let currentToken = "";
 
-/** 현재 연결 상태 */
+// ✅ 동시에 여러 곳에서 ensureChatSocket 호출돼도, 연결은 1번만 하도록 락
+let connectPromise: Promise<Client> | null = null;
+
+function sanitizeToken(t: any): string | null {
+  if (t == null) return null;
+  const s = String(t).trim();
+  if (!s) return null;
+  if (s === "null" || s === "undefined") return null;
+  // 토큰이 'Bearer ...' 형태로 저장됐다면 Bearer 제거
+  if (s.toLowerCase().startsWith("bearer ")) return s.slice(7).trim() || null;
+  return s;
+}
+
+async function getTokenSafely(): Promise<string | null> {
+  // store 우선
+  const storeToken = sanitizeToken(useAuthStore.getState().accessToken);
+  if (storeToken) return storeToken;
+
+  // storage fallback
+  const stored = sanitizeToken(await tokenStorage.getAccessToken());
+  if (stored) {
+    // store에도 반영 (에러는 무시)
+    useAuthStore
+      .getState()
+      .setTokens(stored)
+      .catch(() => {});
+    return stored;
+  }
+
+  return null;
+}
+
 export function isChatConnected() {
   return !!client?.connected;
 }
 
-/** 내부: 토큰 확보 */
-async function getAccessTokenSafely(): Promise<string | null> {
-  let token = useAuthStore.getState().accessToken;
-
-  if (!token) {
-    token = (await tokenStorage.getAccessToken()) ?? null;
-    if (token) {
-      // store에도 반영
-      useAuthStore
-        .getState()
-        .setTokens(token)
-        .catch(() => {});
-    }
-  }
-  return token;
-}
-
-/**
- * ✅ 소켓 보장 함수
- * - 이미 연결돼 있으면: 즉시 onConnected 호출 + client 반환
- * - 연결 안 돼 있으면: 연결 시도하고, 연결 완료 시 onConnected 호출
- */
 export async function ensureChatSocket(
   onConnected?: () => void,
 ): Promise<Client> {
-  const token = await getAccessTokenSafely();
-  if (!token) throw new Error("채팅 연결 실패: accessToken이 비어있습니다.");
-
-  const tokenChanged = token !== currentToken;
-
-  // ✅ 이미 연결 & 토큰 동일: 콜백 즉시 호출하고 그대로 사용
-  if (client?.connected && !tokenChanged) {
+  // 이미 연결돼 있으면 즉시 콜백 호출
+  if (client?.connected) {
     onConnected?.();
     return client;
   }
 
-  // 토큰이 바뀐 경우 기존 연결 종료 후 재생성
-  if (client && tokenChanged) {
-    try {
-      await client.deactivate();
-    } catch {}
-    client = null;
+  // 연결 진행 중이면 그 Promise를 재사용
+  if (connectPromise) {
+    const c = await connectPromise;
+    if (c.connected) onConnected?.();
+    return c;
   }
 
-  currentToken = token;
+  connectPromise = (async () => {
+    const token = await getTokenSafely();
+    if (!token) {
+      // ✅ 토큰 없으면 절대 연결 시도하지 않음 (무한 reconnect 방지)
+      throw new Error("채팅 연결 실패: accessToken이 비어있습니다.");
+    }
 
-  client = new Client({
-    webSocketFactory: () => new SockJS(WS_URL),
-    reconnectDelay: 3000,
-    debug: (msg) => console.log("[STOMP]", msg),
-    connectHeaders: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+    const tokenChanged = token !== currentToken;
 
-  client.onConnect = () => {
-    console.log("✅ STOMP connected:", WS_URL);
-    onConnected?.();
-  };
+    if (client && tokenChanged) {
+      try {
+        await client.deactivate();
+      } catch {}
+      client = null;
+    }
 
-  client.onStompError = (frame) => {
-    console.log("❌ STOMP error headers:", frame.headers);
-    console.log("❌ STOMP error body:", frame.body);
-  };
+    currentToken = token;
 
-  client.onWebSocketError = (evt) => {
-    console.log("❌ WS error:", evt);
-  };
+    client = new Client({
+      webSocketFactory: () => new SockJS(WS_URL),
+      reconnectDelay: 3000,
+      debug: (msg) => console.log("[STOMP]", msg),
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  client.onWebSocketClose = (evt) => {
-    console.log("❌ WS close:", evt.code, evt.reason || "");
-  };
+    client.onConnect = () => {
+      console.log("✅ STOMP connected:", WS_URL);
+      onConnected?.();
+    };
 
-  client.activate();
+    client.onStompError = (frame) => {
+      console.log("❌ STOMP error headers:", frame.headers);
+      console.log("❌ STOMP error body:", frame.body);
+    };
 
-  return client;
+    client.onWebSocketError = (evt) => {
+      console.log("❌ WS error:", evt);
+    };
+
+    client.onWebSocketClose = (evt) => {
+      console.log("❌ WS close:", evt.code, evt.reason || "");
+    };
+
+    client.activate();
+    return client;
+  })();
+
+  try {
+    const c = await connectPromise;
+    return c;
+  } finally {
+    // ✅ 연결 성공/실패와 무관하게 락 해제
+    connectPromise = null;
+  }
 }
 
-/** 방 구독 */
 export function subscribeRoom(
   roomId: string,
   onMessage: (m: IncomingChatMessage) => void,
@@ -132,28 +154,35 @@ export function subscribeRoom(
   });
 }
 
-/** 전송 */
 export function publishChat(payload: SendChatPayload) {
   if (!client || !client.connected) {
     console.log("❌ STOMP not connected, skip send");
     return;
   }
 
+  // ✅ 토큰 없으면 보내지 않음
+  const token = sanitizeToken(currentToken);
+  if (!token) {
+    console.log("❌ token missing, skip send");
+    return;
+  }
+
   client.publish({
     destination: "/app/chat.send",
     body: JSON.stringify(payload),
-    headers: { Authorization: `Bearer ${currentToken}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   console.log("✅ sent:", payload);
 }
 
-/** 로그아웃/앱 종료 등에서만 호출 */
 export async function disconnectChatSocket() {
-  if (!client) return;
   try {
-    await client.deactivate();
+    if (client) await client.deactivate();
   } catch {}
   client = null;
   currentToken = "";
+  connectPromise = null;
 }
