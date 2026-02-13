@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,21 +24,27 @@ type FilterTab = "ALL" | "WALK" | "DOG_CAFE";
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
 
-  // Stores
-  const { posts } = usePostStore();
+  // ✅ store에서 loadPosts도 가져오기
+  const { posts, loadPosts, isLoading } = usePostStore();
   const { profile, stats } = useUserStore();
 
-  // Local State
   const [activeFilter, setActiveFilter] = useState<FilterTab>("ALL");
   const [refreshing, setRefreshing] = useState(false);
 
-  // Mock Refresh
-  const onRefresh = useCallback(() => {
+  // ✅ 진입 시 서버에서 목록 로드
+  useEffect(() => {
+    loadPosts({ page: 0, size: 10 });
+  }, [loadPosts]);
+
+  // ✅ Pull to refresh도 서버 재호출
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      await loadPosts({ page: 0, size: 10 });
+    } finally {
       setRefreshing(false);
-    }, 1500);
-  }, []);
+    }
+  }, [loadPosts]);
 
   const handlePressWrite = () => {
     navigation.navigate("CreatePost");
@@ -62,18 +68,29 @@ export default function HomeScreen() {
         onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <View style={[styles.typeBadge, {
-            backgroundColor: isWalk ? COLORS.primaryLight : COLORS.secondaryLight,
-            borderColor: isWalk ? COLORS.primary : COLORS.secondary,
-            borderWidth: 1,
-          }]}>
+          <View
+            style={[
+              styles.typeBadge,
+              {
+                backgroundColor: isWalk
+                  ? COLORS.primaryLight
+                  : COLORS.secondaryLight,
+                borderColor: isWalk ? COLORS.primary : COLORS.secondary,
+                borderWidth: 1,
+              },
+            ]}
+          >
             <TypeIcon size={12} color={typeColor} strokeWidth={3} />
-            <Text style={[styles.typeText, { color: typeColor }]}>{typeLabel}</Text>
+            <Text style={[styles.typeText, { color: typeColor }]}>
+              {typeLabel}
+            </Text>
           </View>
           <Text style={styles.deadline}>{item.deadlineText}</Text>
         </View>
 
-        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
 
         <View style={styles.cardMeta}>
           <View style={styles.metaRow}>
@@ -88,21 +105,22 @@ export default function HomeScreen() {
 
   const ListHeader = () => (
     <View style={styles.headerContainer}>
-      {/* Greeting Section */}
       <View style={styles.greetingRow}>
         <View>
-          <Text style={styles.greetingSub}>반가워요, {profile.nickname}님! 👋</Text>
-          <Text style={styles.greetingMain}>오늘도 댕댕이와 함께{"\n"}즐거운 하루 되세요</Text>
+          <Text style={styles.greetingSub}>
+            반가워요, {profile.nickname}님! 👋
+          </Text>
+          <Text style={styles.greetingMain}>
+            오늘도 댕댕이와 함께{"\n"}즐거운 하루 되세요
+          </Text>
         </View>
         <AnimatedButton style={styles.profileButton}>
-          {/* Placeholder for Avatar */}
           <View style={styles.avatarPlaceholder}>
             <Text style={styles.avatarText}>{profile.nickname[0]}</Text>
           </View>
         </AnimatedButton>
       </View>
 
-      {/* Dashboard Card */}
       <View style={styles.dashboardCard}>
         <View style={styles.statItem}>
           <View style={styles.statIconWrap}>
@@ -115,17 +133,20 @@ export default function HomeScreen() {
         </View>
         <View style={styles.divider} />
         <View style={styles.statItem}>
-          <View style={[styles.statIconWrap, { backgroundColor: COLORS.secondary }]}>
+          <View
+            style={[styles.statIconWrap, { backgroundColor: COLORS.secondary }]}
+          >
             <Dog size={20} color={COLORS.white} />
           </View>
           <View>
             <Text style={styles.statLabel}>총 산책 거리</Text>
-            <Text style={styles.statValue}>{stats.totalDistanceKm.toFixed(1)} km</Text>
+            <Text style={styles.statValue}>
+              {stats.totalDistanceKm.toFixed(1)} km
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* Filter Section */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -140,13 +161,11 @@ export default function HomeScreen() {
           label="산책 메이트"
           active={activeFilter === "WALK"}
           onPress={() => setActiveFilter("WALK")}
-          icon={<Dog size={14} color={activeFilter === "WALK" ? "#FFF" : "#6B7280"} />}
         />
         <FilterChip
           label="애견카페"
           active={activeFilter === "DOG_CAFE"}
           onPress={() => setActiveFilter("DOG_CAFE")}
-          icon={<Coffee size={14} color={activeFilter === "DOG_CAFE" ? "#FFF" : "#6B7280"} />}
         />
       </ScrollView>
 
@@ -156,7 +175,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Custom Top Bar */}
       <View style={styles.topBar}>
         <View style={styles.locationChip}>
           <MapPin size={14} color="#0ACF83" />
@@ -181,19 +199,26 @@ export default function HomeScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0ACF83" />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0ACF83"
+          />
         }
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Dog size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>등록된 게시글이 없어요</Text>
-            <Text style={styles.emptySub}>새로운 산책 모임을 만들어보세요!</Text>
+            <Text style={styles.emptyText}>
+              {isLoading ? "불러오는 중..." : "등록된 게시글이 없어요"}
+            </Text>
+            <Text style={styles.emptySub}>
+              새로운 산책 모임을 만들어보세요!
+            </Text>
           </View>
         }
       />
 
-      {/* Floating Action Button */}
       <AnimatedButton
         style={styles.fab}
         activeOpacity={0.9}
@@ -205,26 +230,30 @@ export default function HomeScreen() {
   );
 }
 
-// Subcomponents
-
-function FilterChip({ label, active, onPress, icon }: { label: string; active: boolean; onPress: () => void; icon?: React.ReactNode }) {
+function FilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
     <AnimatedButton
       onPress={onPress}
       style={[styles.chip, active && styles.chipActive]}
       activeOpacity={0.8}
     >
-      {icon && <View style={{ marginRight: 6 }}>{icon}</View>}
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+        {label}
+      </Text>
     </AnimatedButton>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  safe: { flex: 1, backgroundColor: COLORS.background },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -241,15 +270,8 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius.circle,
     gap: 4,
   },
-  locationText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primaryDark,
-  },
-  topActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  locationText: { fontSize: 14, fontWeight: "700", color: COLORS.primaryDark },
+  topActions: { flexDirection: "row", gap: 12 },
   iconButton: {
     padding: 8,
     backgroundColor: COLORS.white,
@@ -267,13 +289,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: COLORS.error,
   },
-  listContent: {
-    paddingBottom: 100, // Space for FAB
-  },
-  headerContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
+  listContent: { paddingBottom: 100 },
+  headerContainer: { paddingHorizontal: 20, paddingBottom: 16 },
   greetingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -293,10 +310,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMain,
     lineHeight: 34,
   },
-  profileButton: {
-    marginTop: 4,
-    ...SHADOWS.soft,
-  },
+  profileButton: { marginTop: 4, ...SHADOWS.soft },
   avatarPlaceholder: {
     width: 52,
     height: 52,
@@ -307,11 +321,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primaryLight,
   },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
+  avatarText: { fontSize: 20, fontWeight: "800", color: COLORS.primary },
   dashboardCard: {
     flexDirection: "row",
     backgroundColor: COLORS.white,
@@ -322,12 +332,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.primary,
   },
-  statItem: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
+  statItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
   statIconWrap: {
     width: 44,
     height: 44,
@@ -347,11 +352,7 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     marginBottom: 4,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.textMain,
-  },
+  statValue: { fontSize: 18, fontWeight: "800", color: COLORS.textMain },
   divider: {
     width: 1,
     height: "80%",
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginBottom: 24,
-    paddingHorizontal: 4, // for shadow clipping
+    paddingHorizontal: 4,
   },
   chip: {
     flexDirection: "row",
@@ -381,14 +382,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     ...SHADOWS.medium,
   },
-  chipText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textSub,
-  },
-  chipTextActive: {
-    color: COLORS.white,
-  },
+  chipText: { fontSize: 14, fontWeight: "600", color: COLORS.textSub },
+  chipTextActive: { color: COLORS.white },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "800",
@@ -396,7 +391,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Post Card Styles
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 24,
@@ -420,10 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 6,
   },
-  typeText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  typeText: { fontSize: 12, fontWeight: "700" },
   deadline: {
     fontSize: 12,
     color: COLORS.textSub,
@@ -449,23 +440,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.textSub,
-  },
-  authorText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: COLORS.textMuted,
-  },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaText: { fontSize: 13, fontWeight: "500", color: COLORS.textSub },
+  authorText: { fontSize: 13, fontWeight: "500", color: COLORS.textMuted },
 
-  // FAB
   fab: {
     position: "absolute",
     bottom: 24,
@@ -485,7 +463,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.white,
   },
 
-  // Empty State
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -497,9 +474,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textMain,
   },
-  emptySub: {
-    marginTop: 6,
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
+  emptySub: { marginTop: 6, fontSize: 14, color: COLORS.textMuted },
 });

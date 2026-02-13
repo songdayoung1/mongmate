@@ -4,21 +4,28 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ChevronRight, Settings, Bell, FileText, LogOut, MapPin, Dog } from "lucide-react-native";
+import {
+  ChevronRight,
+  Settings,
+  Bell,
+  FileText,
+  LogOut,
+  MapPin,
+  Dog,
+} from "lucide-react-native";
 
 import TopHeader from "../../components/TopHeader";
 import AnimatedButton from "../../components/AnimatedButton";
 import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
 import { useLogout } from "../../hooks/auth";
 import { useProfile } from "../../hooks/profile";
-import { useUserStore } from "../../store/user"; // For stats mock
+import { useUserStore } from "../../store/user";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 function maskPhone(phone: string | null | undefined) {
@@ -35,12 +42,9 @@ function yyyyMMdd(iso: string | null | undefined) {
 
 export default function MyPageScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const logoutMut = useLogout?.() ?? { mutateAsync: async () => { } };
+  const logoutMut = useLogout();
 
-  // Real profile data
   const { data, isLoading, error, refetch } = useProfile();
-
-  // Mock stats from store for display improvements
   const { stats } = useUserStore();
 
   const guardian = data?.guardianProfile;
@@ -53,20 +57,20 @@ export default function MyPageScreen() {
   );
 
   const onLogout = async () => {
-    Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "로그아웃",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await logoutMut.mutateAsync();
-          } catch {
-            Alert.alert("오류", "로그아웃 중 문제가 발생했습니다.");
-          }
-        },
-      },
-    ]);
+    console.log("🧩 [MyPage] logout pressed");
+    try {
+      await logoutMut.mutateAsync();
+      console.log("🧩 [MyPage] logout success -> reset to AuthStart");
+
+      // ✅ 강제 리셋 (테스트/웹 포함 확실하게 초기화)
+      // RootNavigator가 guest로 바뀌면 AuthStart가 첫 화면이지만, 리셋 한번 더 걸어줌.
+      nav.reset({
+        index: 0,
+        routes: [{ name: "AuthStart" as any }],
+      });
+    } catch (e) {
+      console.log("🧩 [MyPage] logout error:", e);
+    }
   };
 
   if (isLoading) {
@@ -139,7 +143,7 @@ export default function MyPageScreen() {
           </View>
         </AnimatedButton>
 
-        {/* 2. Stats Dashboard */}
+        {/* 2. Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>이번 달 산책</Text>
@@ -152,7 +156,7 @@ export default function MyPageScreen() {
           </View>
         </View>
 
-        {/* 3. Dogs Section */}
+        {/* 3. Dogs */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>나의 반려견 🐾</Text>
           <AnimatedButton onPress={() => nav.navigate("DogManage")}>
@@ -165,17 +169,28 @@ export default function MyPageScreen() {
             style={styles.emptyDogCard}
             onPress={() => nav.navigate("DogManage")}
           >
-            <View style={[styles.dogAvatar, { backgroundColor: COLORS.background }]}>
+            <View
+              style={[styles.dogAvatar, { backgroundColor: COLORS.background }]}
+            >
               <Dog size={24} color={COLORS.textMuted} />
             </View>
             <Text style={styles.emptyDogText}>반려견을 등록해주세요</Text>
             <ChevronRight size={16} color={COLORS.textMuted} />
           </AnimatedButton>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 4 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 12, paddingHorizontal: 4 }}
+          >
             {dogs.map((dog) => (
-              <AnimatedButton key={dog.id} style={styles.dogCard} activeOpacity={0.9} onPress={() => nav.navigate("DogManage")}>
-                <View style={styles.dogAvatarInput} />
+              <AnimatedButton
+                key={dog.id}
+                style={styles.dogCard}
+                activeOpacity={0.9}
+                onPress={() => nav.navigate("DogManage")}
+              >
+                <View style={styles.dogAvatar} />
                 <View style={styles.dogInfo}>
                   <Text style={styles.dogName}>{dog.name}</Text>
                   <Text style={styles.dogBreed}>{dog.breed}</Text>
@@ -185,11 +200,11 @@ export default function MyPageScreen() {
           </ScrollView>
         )}
 
-        {/* 4. Menu List */}
+        {/* 4. Menu */}
         <View style={styles.menuContainer}>
-          <MenuItem icon={FileText} label="내가 쓴 글" onPress={() => { }} />
-          <MenuItem icon={Bell} label="알림 설정" onPress={() => { }} />
-          <MenuItem icon={Settings} label="앱 설정" onPress={() => { }} />
+          <MenuItem icon={FileText} label="내가 쓴 글" onPress={() => {}} />
+          <MenuItem icon={Bell} label="알림 설정" onPress={() => {}} />
+          <MenuItem icon={Settings} label="앱 설정" onPress={() => {}} />
         </View>
 
         {/* 5. Logout */}
@@ -197,14 +212,22 @@ export default function MyPageScreen() {
           <LogOut size={18} color={COLORS.error} />
           <Text style={styles.logoutText}>로그아웃</Text>
         </AnimatedButton>
-        <Text style={styles.versionText}>버전 1.0.0</Text>
 
+        <Text style={styles.versionText}>버전 1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MenuItem({ icon: Icon, label, onPress }: { icon: any, label: string, onPress: () => void }) {
+function MenuItem({
+  icon: Icon,
+  label,
+  onPress,
+}: {
+  icon: any;
+  label: string;
+  onPress: () => void;
+}) {
   return (
     <AnimatedButton style={styles.menuItem} onPress={onPress}>
       <View style={styles.menuLeft}>
@@ -215,243 +238,181 @@ function MenuItem({ icon: Icon, label, onPress }: { icon: any, label: string, on
       </View>
       <ChevronRight size={18} color={COLORS.textMuted} />
     </AnimatedButton>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { flex: 1, paddingHorizontal: 20 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  muted: { color: COLORS.textMuted, marginTop: 12 },
+  scroll: { flex: 1 },
 
-  // 1. Profile
-  profileCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 24,
-    padding: 20,
-    marginTop: 20,
-    ...SHADOWS.medium,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.03)",
-  },
-  profileContent: {
-    flexDirection: "row",
+  center: {
+    flex: 1,
     alignItems: "center",
-    gap: 16,
+    justifyContent: "center",
+    padding: 24,
   },
+  muted: { marginTop: 12, color: COLORS.textMuted, fontWeight: "600" },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.textMain,
+    marginBottom: 12,
+  },
+  retryBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+  },
+  retryText: { color: "#fff", fontWeight: "800" },
+
+  profileCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 22,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
+    padding: 18,
+  },
+  profileContent: { flexDirection: "row", alignItems: "center", gap: 12 },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: COLORS.primaryLight,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: COLORS.primary,
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-  profileInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  nickname: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.textMain,
-  },
+  avatarText: { fontSize: 20, fontWeight: "900", color: COLORS.primary },
+  profileInfo: { flex: 1, gap: 4 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  nickname: { fontSize: 18, fontWeight: "900", color: COLORS.textMain },
   badgeWarn: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.error,
   },
-  bio: {
-    fontSize: 13,
-    color: COLORS.textSub,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
-  },
-  locationText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: "500",
-  },
+  bio: { color: COLORS.textSub, fontWeight: "600" },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  locationText: { color: COLORS.textMuted, fontWeight: "600", fontSize: 12 },
 
-  // 2. Stats
   statsContainer: {
-    flexDirection: "row",
-    marginTop: 24,
+    marginHorizontal: 20,
+    marginTop: 14,
+    borderRadius: 22,
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     ...SHADOWS.soft,
+    padding: 18,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    gap: 6,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: COLORS.textSub,
-    fontWeight: "600",
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
+  statBox: { flex: 1, gap: 6 },
+  statLabel: { color: COLORS.textMuted, fontWeight: "700", fontSize: 12 },
+  statValue: { color: COLORS.textMain, fontWeight: "900", fontSize: 18 },
   divider: {
     width: 1,
-    height: 30,
-    backgroundColor: COLORS.border,
+    height: 34,
+    backgroundColor: COLORS.divider,
+    marginHorizontal: 14,
   },
 
-  // 3. Dogs
   sectionHeader: {
+    marginTop: 18,
+    marginHorizontal: 20,
     flexDirection: "row",
+    alignItems: "flex-end",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 32,
-    marginBottom: 16,
-    paddingHorizontal: 4,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: COLORS.textMain,
-  },
-  sectionAction: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: "900", color: COLORS.textMain },
+  sectionAction: { fontSize: 13, fontWeight: "800", color: COLORS.primary },
+
   emptyDogCard: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 18,
     backgroundColor: COLORS.white,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  emptyDogText: { flex: 1, fontWeight: "800", color: COLORS.textMain },
+
+  dogCard: {
+    marginTop: 12,
+    borderRadius: 18,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderStyle: "dashed",
-  },
-  emptyDogText: {
-    fontSize: 14,
-    color: COLORS.textSub,
-    fontWeight: "600",
-    flex: 1,
-  },
-  dogCard: {
+    ...SHADOWS.soft,
+    padding: 14,
     width: 140,
-    backgroundColor: COLORS.white,
-    padding: 12,
-    borderRadius: 20,
-    ...SHADOWS.soft,
-    gap: 10,
+  },
+  dogAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryLight,
+    marginBottom: 10,
     alignItems: "center",
-    marginVertical: 4,
+    justifyContent: "center",
   },
-  dogAvatarInput: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.background,
-  },
-  dogInfo: {
-    alignItems: "center",
-    gap: 2,
-  },
-  dogName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.textMain,
-  },
-  dogBreed: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
+  dogInfo: { gap: 2 },
+  dogName: { fontWeight: "900", color: COLORS.textMain },
+  dogBreed: { fontWeight: "700", color: COLORS.textMuted, fontSize: 12 },
 
-  // 4. Menu
-  menuContainer: {
-    marginTop: 32,
-    backgroundColor: COLORS.white,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    ...SHADOWS.soft,
-  },
+  menuContainer: { marginTop: 18, marginHorizontal: 20, gap: 10 },
   menuItem: {
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
   },
-  menuLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
+  menuLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   menuIconBox: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 12,
     backgroundColor: COLORS.background,
     alignItems: "center",
     justifyContent: "center",
   },
-  menuLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.textMain,
-  },
+  menuLabel: { fontWeight: "800", color: COLORS.textMain },
 
-  // 5. Logout
   logoutButton: {
+    marginTop: 18,
+    marginHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: "#ffe0e0",
+    ...SHADOWS.soft,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 32,
-    gap: 8,
-    paddingVertical: 12,
+    gap: 10,
   },
-  logoutText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.error,
-  },
+  logoutText: { color: COLORS.error, fontWeight: "900" },
   versionText: {
+    marginTop: 14,
     textAlign: "center",
-    marginTop: 8,
-    fontSize: 12,
     color: COLORS.textMuted,
+    fontWeight: "700",
+    fontSize: 12,
   },
-
-  // Error/Retry
-  errorTitle: { fontSize: 16, fontWeight: "700", marginBottom: 16 },
-  retryBtn: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  retryText: { color: COLORS.white, fontWeight: "700" },
 });

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { listWalkPosts, type WalkPostListResponse } from "../api/walkPosts";
 
 export type PostType = "WALK" | "DOG_CAFE";
 
@@ -16,126 +17,41 @@ export type HomePost = {
 
 type PostStore = {
   posts: HomePost[];
+  isLoading: boolean;
+  error: string | null;
+
   addPost: (input: Omit<HomePost, "id" | "createdAt">) => void;
+  loadPosts: (opts?: { page?: number; size?: number }) => Promise<void>;
 };
 
-const nowIso = () => new Date().toISOString();
+function deadlineText(deadlineAt: string | null) {
+  // 지금 너 백엔드 응답에 deadlineAt이 null일 수 있음
+  if (!deadlineAt) return "마감일 미정";
+  return deadlineAt; // 일단 그대로 보여주고, 나중에 포맷팅 원하면 바꾸면 됨
+}
 
-const initialPosts: HomePost[] = [
-  {
-    id: "1",
-    type: "WALK",
-    title: "저녁 한강 산책 같이 하실 분 구해요 🐾",
-    region: "마포구 성산동",
-    deadlineText: "오늘 20:00까지",
-    authorNickname: "멍멍맘",
-    content: "합정역 근처에서 만나서 한강 따라 1~2시간 정도 가볍게 걸어요.",
-    placeName: "망원한강공원 입구",
-    createdAt: nowIso(),
-  },
-  {
-    id: "2",
-    type: "DOG_CAFE",
-    title: "주말 애견카페 같이 가실 분 ☕",
-    region: "마포구 연남동",
-    deadlineText: "토요일 오후까지",
-    authorNickname: "두부아빠",
-    content: "연남동 애견카페에서 소형견 위주로 편하게 이야기 나눠요.",
-    placeName: "연남동 OO 애견카페",
-    createdAt: nowIso(),
-  },
-  {
-    id: "3",
-    type: "WALK",
-    title: "아침 출근 전 가벼운 산책 같이 하실 분",
-    region: "마포구 망원동",
-    deadlineText: "이번 주 내",
-    authorNickname: "출근전산책러",
-    content: "평일 오전 7시 망원역 근처에서 30분 정도 같이 걸어요.",
-    placeName: "망원역 2번 출구 앞",
-    createdAt: nowIso(),
-  },
-  {
-    id: "4",
-    type: "WALK",
-    title: "소형견 위주 동네 한 바퀴 산책",
-    region: "마포구 성산동",
-    deadlineText: "내일 저녁까지",
-    authorNickname: "콩이엄마",
-    content: "소형견들끼리 조용히 동네 한 바퀴 도는 산책입니다.",
-    placeName: "성산동 주민센터 앞",
-    createdAt: nowIso(),
-  },
-  {
-    id: "5",
-    type: "DOG_CAFE",
-    title: "비 오는 날 애견카페 모임",
-    region: "마포구 도화동",
-    deadlineText: "이번 주말",
-    authorNickname: "비오는날좋아",
-    content: "비 오는 날 실내에서 강아지들끼리 놀게 해줘요.",
-    placeName: "도화동 실내 애견카페",
-    createdAt: nowIso(),
-  },
-  {
-    id: "6",
-    type: "WALK",
-    title: "강아지 사회성 키우기 산책 모임",
-    region: "마포구 상암동",
-    deadlineText: "금요일 저녁까지",
-    authorNickname: "사회성키우자",
-    content: "사람, 강아지에 아직 어색한 아이들 위주로 천천히 걸어요.",
-    placeName: "상암 월드컵공원 입구",
-    createdAt: nowIso(),
-  },
-  {
-    id: "7",
-    type: "WALK",
-    title: "주말 낮 한강 피크닉 산책",
-    region: "마포구 토정동",
-    deadlineText: "토요일 11:00까지",
-    authorNickname: "피크닉좋아",
-    content: "돗자리 펴고 간단히 쉬면서 걷고 먹고 하는 산책입니다.",
-    placeName: "토정동 한강공원 피크닉존",
-    createdAt: nowIso(),
-  },
-  {
-    id: "8",
-    type: "DOG_CAFE",
-    title: "중대형견 환영 애견카페 모임",
-    region: "마포구 공덕동",
-    deadlineText: "이번 주말 오후",
-    authorNickname: "대형견집사",
-    content: "중대형견 친구들과 에너지를 마음껏 발산시키는 모임이에요.",
-    placeName: "공덕역 근처 대형견 가능 카페",
-    createdAt: nowIso(),
-  },
-  {
-    id: "9",
-    type: "WALK",
-    title: "저녁 8시 이후 늦은 산책 메이트 구해요",
-    region: "마포구 아현동",
-    deadlineText: "오늘 22:00까지",
-    authorNickname: "야행성보호자",
-    content: "퇴근하고 8시 이후에만 시간이 되시는 분들 환영해요.",
-    placeName: "아현역 3번 출구 앞",
-    createdAt: nowIso(),
-  },
-  {
-    id: "10",
-    type: "WALK",
-    title: "주말 가족 산책 모임 (아이 동반 가능)",
-    region: "마포구 염리동",
-    deadlineText: "일요일 오전까지",
-    authorNickname: "가족산책러",
-    content: "아이들과 강아지들이 함께 어울릴 수 있는 가족 산책 모임입니다.",
-    placeName: "염리동 어린이공원 앞",
-    createdAt: nowIso(),
-  },
-];
+function mapItemToHomePost(
+  item: WalkPostListResponse["items"][number],
+): HomePost {
+  return {
+    id: String(item.postId),
+    type: item.recruitType as PostType,
+    title: item.title,
+    region:
+      item.region?.displayName ??
+      (item.region?.regionId ? `지역 #${item.region.regionId}` : "지역 미정"),
+    deadlineText: deadlineText(item.deadlineAt),
+    authorNickname: item.authorNickname ?? "알 수 없음",
+    content: "", // 목록 응답엔 content가 없어서 빈값
+    createdAt: item.createdAt,
+  };
+}
 
 export const usePostStore = create<PostStore>((set) => ({
-  posts: initialPosts,
+  posts: [], // ✅ 초기엔 빈 배열 (서버에서 채움)
+  isLoading: false,
+  error: null,
+
   addPost: (input) =>
     set((state) => ({
       posts: [
@@ -147,4 +63,27 @@ export const usePostStore = create<PostStore>((set) => ({
         ...state.posts,
       ],
     })),
+
+  loadPosts: async (opts) => {
+    const page = opts?.page ?? 0;
+    const size = Math.min(Math.max(opts?.size ?? 10, 1), 50);
+
+    set({ isLoading: true, error: null });
+    try {
+      const res = await listWalkPosts({
+        page,
+        size,
+        // ✅ 너 백엔드 응답에서 recruitType="WALK" 글이 있으니 명시해도 되고 생략해도 됨
+        // recruitType: "WALK",
+        // status: "OPEN",
+      });
+
+      set({
+        posts: res.items.map(mapItemToHomePost),
+        isLoading: false,
+      });
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.message ?? "게시글 조회 실패" });
+    }
+  },
 }));

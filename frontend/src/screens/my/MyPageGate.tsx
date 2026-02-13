@@ -10,18 +10,16 @@ export default function MyPageGate() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // TODO 로그인 검증
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     if (!isAuthed) {
-  //       // 인증이 안 되어 있으면 폰 인증 화면으로 보냄
-  //       navigation.navigate("AuthStart");
-  //     }
-  //   }, [isAuthed, navigation])
-  // );
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthed) {
+        // ✅ 로그아웃/만료 등으로 비인증 상태면 인증 시작 화면으로
+        navigation.navigate("AuthStart");
+      }
+    }, [isAuthed, navigation]),
+  );
 
-  // // 인증되어 있으면 마이페이지 렌더
-  // return isAuthed ? <MyPageScreen /> : null;
-
+  // ✅ 인증되어 있으면 마이페이지 렌더
+  // (비인증일 때도 일단 렌더가 잠깐 될 수 있으니, 위 useFocusEffect가 바로 보내줌)
   return <MyPageScreen />;
 }
