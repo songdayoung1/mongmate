@@ -31,14 +31,19 @@ export type AuthState = {
 
   init: () => Promise<void>;
   setTokens: (accessToken: string, refreshToken?: string) => Promise<void>;
-
   setSession: (session: Session) => Promise<void>;
-  loginWithTokens: (session: Session) => Promise<void>;
-
-  login: (phoneNumber: string) => Promise<"signup" | "login">;
-
+  login: (phoneNumber: string) => Promise<"login">;
   logout: () => Promise<void>;
 };
+
+function sanitizeToken(t: any): string | null {
+  if (t == null) return null;
+  const s = String(t).trim();
+  if (!s) return null;
+  if (s === "null" || s === "undefined") return null;
+  if (s.toLowerCase().startsWith("bearer ")) return s.slice(7).trim() || null;
+  return s;
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   hydrated: false,
@@ -52,64 +57,79 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: null,
 
   init: async () => {
-    const [accessToken, refreshToken, userId, phoneNumber] = await Promise.all([
+    const [rawAccess, rawRefresh, userId, phoneNumber] = await Promise.all([
       tokenStorage.getAccessToken(),
       tokenStorage.getRefreshToken(),
       tokenStorage.getUserId(),
       tokenStorage.getPhoneNumber(),
     ]);
 
+    const accessToken = sanitizeToken(rawAccess);
+    const refreshToken = sanitizeToken(rawRefresh);
+
     set({
-      accessToken: accessToken ?? null,
-      refreshToken: refreshToken ?? null,
+      accessToken,
+      refreshToken,
       isAuthed: !!accessToken,
       userId: userId ?? null,
       phoneNumber: phoneNumber ?? null,
       hydrated: true,
     });
 
-    // ✅ 앱 재실행 후 토큰이 있다면 미리 소켓 warm-up (UX 개선)
+    // ✅ 토큰 있을 때만 warm-up (없으면 STOMP 무한시도 방지)
     if (accessToken) {
       ensureChatSocket().catch(() => {});
+    } else {
+      // 혹시 남아있는 소켓이 있으면 정리
+      disconnectChatSocket().catch(() => {});
     }
   },
 
   setTokens: async (accessToken: string, refreshToken?: string) => {
-    await tokenStorage.setAccessToken(accessToken);
-    if (refreshToken) await tokenStorage.setRefreshToken(refreshToken);
+    const at = sanitizeToken(accessToken);
+    const rt = sanitizeToken(refreshToken);
+
+    if (!at) {
+      // ✅ 빈 토큰이 들어오면 아예 로그아웃 상태로 정리
+      await tokenStorage.clear();
+      set({
+        isAuthed: false,
+        accessToken: null,
+        refreshToken: null,
+        userId: null,
+        phoneNumber: null,
+        user: null,
+      });
+      await disconnectChatSocket();
+      return;
+    }
+
+    await tokenStorage.setAccessToken(at);
+    if (rt) await tokenStorage.setRefreshToken(rt);
 
     set({
-      accessToken,
-      refreshToken: refreshToken ?? get().refreshToken,
+      accessToken: at,
+      refreshToken: rt ?? get().refreshToken,
       isAuthed: true,
     });
 
-    // ✅ 토큰이 세팅되는 순간 소켓 미리 연결
+    // ✅ 토큰이 유효할 때만 warm-up
     ensureChatSocket().catch(() => {});
   },
 
   setSession: async (session: Session) => {
     await get().setTokens(session.accessToken, session.refreshToken);
 
-    if (session.userId != null) {
+    if (session.userId != null)
       tokenStorage.setUserId(session.userId).catch(() => {});
-    }
-    if (session.phoneNumber) {
+    if (session.phoneNumber)
       tokenStorage.setPhoneNumber(session.phoneNumber).catch(() => {});
-    }
 
     set({
       userId: session.userId ?? get().userId,
       phoneNumber: session.phoneNumber ?? get().phoneNumber,
       user: session.me ?? get().user,
     });
-
-    // ✅ 세션 확정 이후에도 한번 더 warm-up (안전)
-    ensureChatSocket().catch(() => {});
-  },
-
-  loginWithTokens: async (session: Session) => {
-    await get().setSession(session);
   },
 
   login: async (phoneNumber: string) => {
@@ -124,12 +144,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    try {
-      await disconnectChatSocket();
-    } catch {}
-
+    await disconnectChatSocket();
     await tokenStorage.clear();
-
     set({
       isAuthed: false,
       accessToken: null,
