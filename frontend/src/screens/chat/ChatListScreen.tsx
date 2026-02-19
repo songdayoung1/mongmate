@@ -1,22 +1,14 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import TopHeader from "../../components/TopHeader";
 import AnimatedButton from "../../components/AnimatedButton";
-import { COLORS, SHADOWS, SIZES } from "../../constants/theme";
+import { COLORS, SHADOWS } from "../../constants/theme";
 import type { ChatStackParamList } from "../../navigation/ChatStackNavigator";
 import { loadChatRooms, type ChatRoomListItemDto } from "../../api/chat";
-import { useAuthStore } from "../../store/auth";
 
 type Nav = NativeStackNavigationProp<ChatStackParamList, "ChatList">;
 
@@ -32,7 +24,6 @@ type RoomItem = {
 function formatTimeFromIso(iso: string) {
   const d = new Date(iso);
   const now = new Date();
-
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
@@ -77,7 +68,6 @@ export default function ChatListScreen() {
       setRooms(items);
     } catch (e: any) {
       console.log("❌ loadChatRooms error:", e?.message ?? e);
-      // Quiet fail or show toast
     } finally {
       setRefreshing(false);
     }
@@ -90,6 +80,13 @@ export default function ChatListScreen() {
   );
 
   const onPressRoom = (room: RoomItem) => {
+    // ✅ UX: 들어가는 순간 뱃지 0으로 먼저
+    setRooms((prev) =>
+      prev.map((r) =>
+        r.roomId === room.roomId ? { ...r, unreadCount: 0 } : r,
+      ),
+    );
+
     navigation.navigate("ChatRoom", {
       roomId: room.roomId,
       title: room.title,
@@ -106,7 +103,9 @@ export default function ChatListScreen() {
 
       <View style={styles.content}>
         <View style={styles.topRow}>
-          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.title}
+          </Text>
           <Text style={styles.time}>{item.timeText}</Text>
         </View>
 
@@ -135,7 +134,11 @@ export default function ChatListScreen() {
         keyExtractor={(r) => r.roomId}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={fetchList} tintColor={COLORS.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchList}
+            tintColor={COLORS.primary}
+          />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -169,15 +172,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.background, // Placeholder color
+    backgroundColor: COLORS.background,
     marginRight: 14,
   },
 
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 4,
-  },
+  content: { flex: 1, justifyContent: "center", gap: 4 },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -196,18 +195,8 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  time: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: "500",
-  },
-
-  preview: {
-    fontSize: 14,
-    color: COLORS.textSub,
-    flex: 1,
-    marginRight: 8,
-  },
+  time: { fontSize: 12, color: COLORS.textMuted, fontWeight: "500" },
+  preview: { fontSize: 14, color: COLORS.textSub, flex: 1, marginRight: 8 },
 
   badge: {
     minWidth: 20,
@@ -218,24 +207,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 6,
   },
-  badgeText: {
-    color: COLORS.white,
-    fontWeight: "800",
-    fontSize: 11,
-  },
+  badgeText: { color: COLORS.white, fontWeight: "800", fontSize: 11 },
 
-  empty: {
-    paddingTop: 100,
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.textMain,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
+  empty: { paddingTop: 100, alignItems: "center", gap: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: "700", color: COLORS.textMain },
+  emptySub: { fontSize: 14, color: COLORS.textMuted },
 });

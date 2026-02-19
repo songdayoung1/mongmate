@@ -3,23 +3,25 @@ import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabs from "./MainTabs";
 import KeyboardDismissWrapper from "../components/KeyboardDismissWrapper";
+
 import CreatePostScreen from "../screens/home/CreatePostScreen";
+import PostDetailScreen from "../screens/home/PostDetailScreen";
+
 import AuthStartScreen from "../screens/auth/AuthStartScreen";
 import SignupInfoScreen from "../screens/auth/SignupInfoScreen";
 import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
-import PostDetailScreen from "../screens/home/PostDetailScreen";
-import { useAuthStore } from "../store/auth";
 
 import EditMyProfileScreen from "../screens/my/EditMyProfileScreen";
 import DogManageScreen from "../screens/my/DogManageScreen";
 import DogEditScreen from "../screens/my/DogEditScreen";
+
+import { useAuthStore } from "../store/auth";
 
 export type RootStackParamList = {
   Main: undefined;
   CreatePost: undefined;
   PostDetail: { postId: string };
 
-  // ✅ MyPage 기능
   EditMyProfile: undefined;
   DogManage: undefined;
   DogEdit: { mode: "create" } | { mode: "edit"; dogId: number };
@@ -53,13 +55,17 @@ const theme = {
 export default function RootNavigator() {
   const hydrated = useAuthStore((s) => s.hydrated);
   const isAuthed = useAuthStore((s) => s.isAuthed);
+
   if (!hydrated) return null;
 
+  /**
+   * ✅ 핵심: NavigationContainer 자체를 key로 리마운트
+   * - 로그아웃/로그인 시 네비 상태가 남아 "화면이 안 바뀌는" 문제를 확실히 방지
+   */
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer theme={theme} key={isAuthed ? "authed" : "guest"}>
       <KeyboardDismissWrapper>
         <Stack.Navigator
-          key={isAuthed ? "authed" : "guest"}
           screenOptions={{
             headerShown: false,
             headerTitleAlign: "center",
@@ -72,7 +78,6 @@ export default function RootNavigator() {
               <Stack.Screen name="CreatePost" component={CreatePostScreen} />
               <Stack.Screen name="PostDetail" component={PostDetailScreen} />
 
-              {/* ✅ 마이페이지 기능 */}
               <Stack.Screen
                 name="EditMyProfile"
                 component={EditMyProfileScreen}

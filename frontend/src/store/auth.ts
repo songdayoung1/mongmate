@@ -144,8 +144,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    await disconnectChatSocket();
-    await tokenStorage.clear();
+    console.log("🔒 [store/auth] logout called");
+    try {
+      if (typeof disconnectChatSocket === "function") {
+        console.log("🔒 Disconnecting socket...");
+        await disconnectChatSocket();
+      }
+    } catch (e) {
+      console.log("🔒 Socket disconnect error (ignored):", e);
+    }
+
+    try {
+      console.log("🔒 Clearing storage...");
+      await tokenStorage.clear();
+    } catch (e) {
+      console.log("🔒 Storage clear error:", e);
+    }
+
+    console.log("🔒 Resetting store state...");
     set({
       isAuthed: false,
       accessToken: null,
@@ -154,5 +170,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       phoneNumber: null,
       user: null,
     });
+    console.log("🔒 [store/auth] logout complete");
   },
 }));

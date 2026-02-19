@@ -10,9 +10,9 @@ export type ChatRoomListItemDto = {
     senderId: string;
     content: string;
     seq: number;
-    sentAt: string; // ISO
+    sentAt: string;
   };
-  updatedAt: string; // ISO
+  updatedAt: string;
 };
 
 export type ChatRoomStateDto = {
@@ -30,11 +30,17 @@ export type ChatMessageDto = {
   timestamp: number;
 };
 
+export type ChatReadRequest = { lastReadSeq: number };
+export type ChatReadResponse = {
+  roomId: string;
+  userId: string;
+  lastReadSeq: number;
+};
+
 export async function loadChatRooms() {
   return apiFetch<ChatRoomListItemDto[]>("/api/chat/rooms", {
     method: "GET",
     auth: "required",
-    debug: true, // ✅ 일단 켜두고 Authorization 붙는지 확인 후 꺼도 됨
   });
 }
 
@@ -42,6 +48,14 @@ export async function loadRoomState(roomId: string) {
   return apiFetch<ChatRoomStateDto>(`/api/chat/rooms/${roomId}/state`, {
     method: "GET",
     auth: "required",
+  });
+}
+
+export async function markRoomRead(roomId: string, lastReadSeq: number) {
+  return apiFetch<ChatReadResponse>(`/api/chat/rooms/${roomId}/read`, {
+    method: "POST",
+    auth: "required",
+    body: JSON.stringify({ lastReadSeq } satisfies ChatReadRequest),
   });
 }
 

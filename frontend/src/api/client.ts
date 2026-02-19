@@ -9,6 +9,39 @@ type ApiFetchOptions = RequestInit & {
   debug?: boolean; // ✅ true면 요청헤더 콘솔 출력
 };
 
+/**
+ * ✅ Authorization 헤더가 "필요 없는" 공개 API 경로들
+ * - prefix 매칭 (startsWith)
+ * - 프로젝트 진행하면서 공개 API가 늘어나면 여기에 추가
+ *
+ * ⚠️ 주의:
+ * - 여기 들어간 경로들은 auth="auto" 일 때도 토큰을 붙이지 않음
+ * - auth="required"면 무조건 붙임(= 보호 API)
+ */
+const PUBLIC_PATH_PREFIXES: string[] = [
+  // Auth
+  "/api/auth/sms/send",
+  "/api/auth/sms/verify",
+
+  // Walk posts (목록/상세가 공개라면 prefix로 묶기)
+  "/api/walk-posts",
+];
+
+function isPublicPath(path: string) {
+  // absolute url이 들어오면 path만 뽑아서 판단
+  const p = path.startsWith("http")
+    ? (() => {
+        try {
+          return new URL(path).pathname;
+        } catch {
+          return path;
+        }
+      })()
+    : path;
+
+  return PUBLIC_PATH_PREFIXES.some((prefix) => p.startsWith(prefix));
+}
+
 async function readBodySafe(res: Response) {
   const text = await res.text();
   if (!text) return null;
@@ -46,22 +79,41 @@ export async function apiFetch<T>(
     finalHeaders["Content-Type"] = "application/json";
   }
 
-  // ✅ 토큰 부착 규칙:
-  // - auth=none: 절대 안 붙임 (로그인/회원가입)
-  // - auth=auto: 토큰 있으면 붙임
-  // - auth=required: 토큰 반드시 붙임(위에서 없으면 에러)
-  if (auth !== "none" && token) {
-    finalHeaders.Authorization = `Bearer ${token}`;
+  /**
+   * ✅ 토큰 부착 규칙 (개선)
+   * - auth=none: 절대 안 붙임
+   * - auth=required: 토큰 반드시 붙임 (없으면 위에서 throw)
+   * - auth=auto:
+   *    - 공개 API(PUBLIC_PATH_PREFIXES)에 해당하면 토큰 안 붙임
+   *    - 그 외는 토큰 있으면 붙임
+   */
+  if (auth === "required") {
+    if (token) {
+      finalHeaders.Authorization = `Bearer ${token}`;
+    }
+  } else if (auth === "auto") {
+    const publicApi = isPublicPath(path);
+    if (!publicApi && token) {
+      finalHeaders.Authorization = `Bearer ${token}`;
+    }
   }
+  // auth === "none" 은 아무것도 안 함
 
   if (debug) {
     console.log("[apiFetch]", rest.method ?? "GET", url);
+    console.log("[apiFetch] auth mode:", auth, "public:", isPublicPath(path));
     console.log("[apiFetch] headers:", finalHeaders);
   }
 
   const res = await fetch(url, { ...rest, headers: finalHeaders });
   const data = await readBodySafe(res);
-
+  if (res.status === 401) {
+    // 토큰 만료/무효 → 세션 정리
+    try {
+      const { logout } = useAuthStore.getState();
+      if (logout) await logout();
+    } catch {}
+  }
   if (!res.ok) {
     const msg =
       (data && typeof data === "object" && (data.message || data.error)) ||

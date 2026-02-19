@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,14 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import {
   ArrowLeft,
   MapPin,
-  Calendar,
   Dog,
   Coffee,
   MessageCircle,
@@ -22,9 +21,12 @@ import {
 } from "lucide-react-native";
 import { usePostStore } from "../../store/posts";
 import { RootStackParamList } from "../../navigation/RootNavigator";
+import {
+  getWalkPostDetail,
+  type WalkPostDetailResponse,
+} from "../../api/walkPosts";
 
 type PostDetailRouteProp = RouteProp<RootStackParamList, "PostDetail">;
-
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function PostDetailScreen() {
@@ -33,40 +35,107 @@ export default function PostDetailScreen() {
   const { postId } = route.params;
 
   const posts = usePostStore((s) => s.posts);
-  const post = useMemo(() => posts.find((p) => p.id === postId), [posts, postId]);
+  const post = useMemo(
+    () => posts.find((p) => p.id === postId),
+    [posts, postId],
+  );
 
-  if (!post) {
+  const [detail, setDetail] = useState<WalkPostDetailResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // ✅ store에 없거나 content/장소가 비어있으면 detail로 보강
+  useEffect(() => {
+    let alive = true;
+
+    const needFetch = !post || post.content === "";
+    if (!needFetch) return;
+
+    (async () => {
+      try {
+        setLoading(true);
+        const d = await getWalkPostDetail(postId);
+        if (!alive) return;
+        setDetail(d);
+      } catch {
+        // detail 실패해도 store 데이터로 화면은 살아있게
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [postId, post]);
+
+  // store + detail 합성 (detail이 있으면 우선)
+  const merged = useMemo(() => {
+    if (!post && !detail) return null;
+
+    const title = detail?.title ?? post?.title ?? "";
+    const content =
+      (detail?.content ?? post?.content ?? "") || "내용이 없습니다.";
+    const region =
+      detail?.region?.displayName ??
+      post?.region ??
+      (detail?.region?.regionId
+        ? `지역 #${detail.region.regionId}`
+        : "지역 미정");
+    const deadlineText =
+      post?.deadlineText ?? detail?.deadlineAt ?? "마감일 미정";
+    const authorNickname =
+      detail?.authorNickname ?? post?.authorNickname ?? "알 수 없음";
+    const createdAt =
+      detail?.createdAt ?? post?.createdAt ?? new Date().toISOString();
+    const status = post?.status ?? detail?.status ?? "OPEN";
+    const placeName = detail?.meetAddress ?? post?.placeName ?? region;
+
+    // 타입: store가 제일 정확(우리는 prefix로 보정함)
+    const type = post?.type ?? "WALK";
+
+    return {
+      title,
+      content,
+      region,
+      deadlineText,
+      authorNickname,
+      createdAt,
+      status,
+      placeName,
+      type,
+    };
+  }, [post, detail]);
+
+  if (!merged) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <ArrowLeft size={24} color="#111827" />
           </TouchableOpacity>
         </View>
         <View style={styles.errorContainer}>
           <Dog size={48} color="#D1D5DB" />
           <Text style={styles.errorText}>게시글을 찾을 수 없어요 😢</Text>
-          <Text style={styles.errorSubText}>삭제되었거나 존재하지 않는 글입니다.</Text>
-          <TouchableOpacity
-            style={styles.homeButton}
-            onPress={() => navigation.navigate("Main")}
-          >
-            <Text style={styles.homeButtonText}>홈으로 돌아가기</Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const isWalk = post.type === "WALK";
+  const isWalk = merged.type === "WALK";
   const TypeIcon = isWalk ? Dog : Coffee;
   const themeColor = isWalk ? "#0ACF83" : "#FF9F43";
   const typeLabel = isWalk ? "산책 메이트" : "애견카페 모임";
 
+  // ✅ 백엔드 chat.canChat은 신뢰 못하니, 최소한 status로 버튼 제어
+  const canChat = merged.status === "OPEN";
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -76,7 +145,7 @@ export default function PostDetailScreen() {
             <ArrowLeft size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {post.region}
+            {merged.region}
           </Text>
           <TouchableOpacity style={styles.shareButton} hitSlop={10}>
             <Share2 size={24} color="#111827" />
@@ -85,31 +154,40 @@ export default function PostDetailScreen() {
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Type Badge */}
-        <View style={[styles.typeBadge, { backgroundColor: themeColor + "15" }]}>
+        {loading && (
+          <View style={{ paddingVertical: 10 }}>
+            <ActivityIndicator />
+          </View>
+        )}
+
+        <View
+          style={[styles.typeBadge, { backgroundColor: themeColor + "15" }]}
+        >
           <TypeIcon size={14} color={themeColor} strokeWidth={2.5} />
-          <Text style={[styles.typeText, { color: themeColor }]}>{typeLabel}</Text>
+          <Text style={[styles.typeText, { color: themeColor }]}>
+            {typeLabel}
+          </Text>
+          <Text style={[styles.statusText, { color: "#6B7280" }]}>
+            · {merged.status}
+          </Text>
         </View>
 
-        {/* Title */}
-        <Text style={styles.title}>{post.title}</Text>
+        <Text style={styles.title}>{merged.title}</Text>
 
-        {/* Author Info */}
         <View style={styles.authorRow}>
           <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>{post.authorNickname[0]}</Text>
+            <Text style={styles.avatarText}>{merged.authorNickname[0]}</Text>
           </View>
           <View>
-            <Text style={styles.authorName}>{post.authorNickname}</Text>
+            <Text style={styles.authorName}>{merged.authorNickname}</Text>
             <Text style={styles.postDate}>
-              {new Date(post.createdAt).toLocaleDateString()} 작성
+              {new Date(merged.createdAt).toLocaleDateString()} 작성
             </Text>
           </View>
         </View>
 
         <View style={styles.divider} />
 
-        {/* Info Grid */}
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
             <View style={styles.iconBox}>
@@ -117,7 +195,7 @@ export default function PostDetailScreen() {
             </View>
             <View>
               <Text style={styles.infoLabel}>마감 시간</Text>
-              <Text style={styles.infoValue}>{post.deadlineText}</Text>
+              <Text style={styles.infoValue}>{merged.deadlineText}</Text>
             </View>
           </View>
 
@@ -127,26 +205,34 @@ export default function PostDetailScreen() {
             </View>
             <View>
               <Text style={styles.infoLabel}>만나는 장소</Text>
-              <Text style={styles.infoValue}>{post.placeName || post.region}</Text>
+              <Text style={styles.infoValue}>{merged.placeName}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.divider} />
 
-        {/* Content */}
         <Text style={styles.contentLabel}>상세 내용</Text>
-        <Text style={styles.contentText}>{post.content}</Text>
+        <Text style={styles.contentText}>{merged.content}</Text>
 
-        {/* Bottom Space for FAB */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Bottom Action Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.chatButton} activeOpacity={0.9}>
+        <TouchableOpacity
+          style={[styles.chatButton, !canChat && styles.chatButtonDisabled]}
+          activeOpacity={0.9}
+          disabled={!canChat}
+          onPress={() => {
+            // 백엔드 수정 불가 조건이면 여기서는 “채팅방 생성/연결”이 보장되지 않음
+            // 최소 UX: OPEN이 아니면 막고, OPEN이면 채팅탭으로 유도
+            navigation.navigate("ChatTab");
+          }}
+        >
           <MessageCircle size={20} color="#FFFFFF" />
-          <Text style={styles.chatButtonText}>채팅하기</Text>
+          <Text style={styles.chatButtonText}>
+            {canChat ? "채팅하기" : "채팅 불가"}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -154,13 +240,8 @@ export default function PostDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  safe: {
-    backgroundColor: "#FFFFFF",
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  safe: { backgroundColor: "#FFFFFF" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -170,9 +251,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F3F4F6",
   },
-  backButton: {
-    padding: 4,
-  },
+  backButton: { padding: 4 },
   headerTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -181,12 +260,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginHorizontal: 16,
   },
-  shareButton: {
-    padding: 4,
-  },
-  scrollContent: {
-    padding: 20,
-  },
+  shareButton: { padding: 4 },
+  scrollContent: { padding: 20 },
+
   typeBadge: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -197,10 +273,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 6,
   },
-  typeText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  typeText: { fontSize: 12, fontWeight: "700" },
+  statusText: { fontSize: 12, fontWeight: "700" },
+
   title: {
     fontSize: 22,
     fontWeight: "700",
@@ -224,130 +299,64 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#9CA3AF",
+  avatarText: { fontSize: 16, fontWeight: "700", color: "#9CA3AF" },
+  authorName: { fontSize: 15, fontWeight: "600", color: "#111827" },
+  postDate: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
+
+  divider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 20 },
+  infoGrid: { gap: 14 },
+  infoItem: { flexDirection: "row", gap: 12, alignItems: "center" },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  authorName: {
+  infoLabel: { fontSize: 12, fontWeight: "700", color: "#6B7280" },
+  infoValue: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#111827",
-  },
-  postDate: {
-    fontSize: 12,
-    color: "#9CA3AF",
     marginTop: 2,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#F3F4F6",
-    marginVertical: 4,
-    marginBottom: 20,
-  },
-  infoGrid: {
-    gap: 16,
-    marginBottom: 20,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#F9FAFB",
-    padding: 12,
-    borderRadius: 12,
-  },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
+
   contentLabel: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
     color: "#111827",
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  contentText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: "#374151",
-  },
+  contentText: { fontSize: 15, color: "#111827", lineHeight: 22 },
+
   bottomBar: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#FFFFFF",
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 34 : 20,
+    bottom: 0,
+    padding: 14,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
+    borderTopColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   chatButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0ACF83",
     height: 52,
     borderRadius: 16,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     gap: 8,
   },
-  chatButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
+  chatButtonDisabled: { backgroundColor: "#9CA3AF" },
+  chatButtonText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
 
-  // Error State
   errorContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 100,
+    gap: 10,
   },
-  errorText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#374151",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorSubText: {
-    fontSize: 14,
-    color: "#9CA3AF",
-    marginBottom: 24,
-  },
-  homeButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-  },
-  homeButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#4B5563",
-  },
+  errorText: { fontSize: 16, fontWeight: "800", color: "#111827" },
 });
