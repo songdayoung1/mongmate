@@ -1,7 +1,11 @@
 import React from "react";
-import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  DefaultTheme,
+  NavigatorScreenParams,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import MainTabs from "./MainTabs";
+import MainTabs, { type MainTabParamList } from "./MainTabs";
 import KeyboardDismissWrapper from "../components/KeyboardDismissWrapper";
 
 import CreatePostScreen from "../screens/home/CreatePostScreen";
@@ -18,7 +22,7 @@ import DogEditScreen from "../screens/my/DogEditScreen";
 import { useAuthStore } from "../store/auth";
 
 export type RootStackParamList = {
-  Main: undefined;
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
   CreatePost: undefined;
   PostDetail: { postId: string };
 

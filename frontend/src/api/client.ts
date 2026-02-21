@@ -22,9 +22,7 @@ const PUBLIC_PATH_PREFIXES: string[] = [
   // Auth
   "/api/auth/sms/send",
   "/api/auth/sms/verify",
-
-  // Walk posts (목록/상세가 공개라면 prefix로 묶기)
-  "/api/walk-posts",
+  // Walk posts: token should be attached when available, so keep auto mode without prefix
 ];
 
 function isPublicPath(path: string) {

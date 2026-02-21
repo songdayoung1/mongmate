@@ -15,12 +15,17 @@ import {
   Platform,
   StyleSheet,
   Alert,
+  BackHandler,
 } from "react-native";
-import { useRoute, useNavigation } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  useRoute,
+  useNavigation,
+  useFocusEffect,
+} from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import TopHeader from "../../components/TopHeader";
 import { useAuthStore } from "../../store/auth";
 import {
   loadRecentMessages,
@@ -91,6 +96,25 @@ export default function ChatRoomScreen() {
   const route = useRoute<R>();
   const navigation = useNavigation<Nav>();
   const { roomId, title } = route.params;
+
+  const handleBackToList = useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "ChatList" }],
+    });
+    const tabNav = navigation.getParent();
+    tabNav?.navigate?.("Chat");
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        handleBackToList();
+        return true;
+      });
+      return () => sub.remove();
+    }, [handleBackToList, navigation]),
+  );
 
   const myUserId = useAuthStore((s) => String(s.userId ?? ""));
   const [text, setText] = useState("");
@@ -272,11 +296,21 @@ export default function ChatRoomScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 70 : 0}
     >
-      <TopHeader
-        title={title ? String(title) : "채팅"}
-        showBack
-        onBack={() => navigation.goBack()}
-      />
+      <SafeAreaView style={styles.headerSafe} edges={["top"]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerBackBtn}
+            hitSlop={12}
+            onPress={handleBackToList}
+          >
+            <Text style={styles.headerBackIcon}>{"<"}</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {title ? String(title) : "채팅"}
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      </SafeAreaView>
 
       <FlatList
         ref={listRef}
@@ -318,6 +352,28 @@ export default function ChatRoomScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F9FAFB" },
+  headerSafe: { backgroundColor: "#FFFFFF" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+  },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerBackIcon: { fontSize: 18, fontWeight: "900", color: "#111827" },
+  headerTitle: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  headerSpacer: { width: 36 },
   listContent: { padding: 14, paddingBottom: 10 },
   empty: { textAlign: "center", color: "#6B7280", marginTop: 30 },
 
