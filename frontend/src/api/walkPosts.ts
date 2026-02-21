@@ -79,7 +79,15 @@ export async function listWalkPosts(params: ListWalkPostsParams = {}) {
 export async function getWalkPostDetail(postId: string | number) {
   return apiFetch<WalkPostDetailResponse>(`/api/walk-posts/${postId}`, {
     method: "GET",
-    auth: "none",
+    auth: "auto",
+  });
+}
+
+/** GET /api/walk-posts/{postId} (auth required) */
+export async function getWalkPostDetailAuthed(postId: string | number) {
+  return apiFetch<WalkPostDetailResponse>(`/api/walk-posts/${postId}`, {
+    method: "GET",
+    auth: "required",
   });
 }
 

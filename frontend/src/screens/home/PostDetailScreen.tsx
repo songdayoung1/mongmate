@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -23,6 +24,7 @@ import { usePostStore } from "../../store/posts";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 import {
   getWalkPostDetail,
+  getWalkPostDetailAuthed,
   type WalkPostDetailResponse,
 } from "../../api/walkPosts";
 
@@ -42,18 +44,21 @@ export default function PostDetailScreen() {
 
   const [detail, setDetail] = useState<WalkPostDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const fetchDetail = useCallback(async () => {
+    const data = await getWalkPostDetail(postId);
+    return data;
+  }, [postId]);
 
   // ✅ store에 없거나 content/장소가 비어있으면 detail로 보강
   useEffect(() => {
     let alive = true;
 
-    const needFetch = !post || post.content === "";
-    if (!needFetch) return;
-
     (async () => {
       try {
         setLoading(true);
-        const d = await getWalkPostDetail(postId);
+        const d = await fetchDetail();
         if (!alive) return;
         setDetail(d);
       } catch {
@@ -66,7 +71,20 @@ export default function PostDetailScreen() {
     return () => {
       alive = false;
     };
-  }, [postId, post]);
+  }, [fetchDetail]);
+
+  const ensureChatRoom = useCallback(async () => {
+    if (detail?.chat?.roomId && detail.chat.canChat) {
+      return detail.chat.roomId;
+    }
+
+    const latest = await getWalkPostDetailAuthed(postId);
+    setDetail(latest);
+    if (latest.chat?.roomId && latest.chat.canChat) {
+      return latest.chat.roomId;
+    }
+    return null;
+  }, [detail, postId]);
 
   // store + detail 합성 (detail이 있으면 우선)
   const merged = useMemo(() => {
@@ -106,6 +124,58 @@ export default function PostDetailScreen() {
     };
   }, [post, detail]);
 
+  // ✅ 백엔드 chat.canChat은 신뢰 못하니, 최소한 status + roomId 체크
+  const chatRoomId = detail?.chat?.roomId ?? null;
+  const serverCanChat = detail?.chat?.canChat;
+  const chatTitle = merged?.title ?? "채팅";
+  const canChat = merged?.status === "OPEN" && serverCanChat !== false;
+  const chatButtonDisabled = !canChat || chatLoading;
+
+  const handleStartChat = useCallback(async () => {
+    if (!canChat || chatLoading || !merged) return;
+
+    setChatLoading(true);
+    try {
+      const resolvedRoomId =
+        chatRoomId && serverCanChat !== false
+          ? chatRoomId
+          : await ensureChatRoom();
+
+      if (!resolvedRoomId) {
+        Alert.alert("채팅 시작 불가", "채팅방 정보를 확인할 수 없습니다.");
+        return;
+      }
+
+      navigation.navigate({
+        name: "Main",
+        params: {
+          screen: "Chat",
+          params: {
+            screen: "ChatRoom",
+            params: {
+              roomId: String(resolvedRoomId),
+              title: chatTitle,
+            },
+          },
+        },
+        merge: true,
+      } as never);
+    } catch (e: any) {
+      Alert.alert("채팅 시작 실패", e?.message ?? "채팅방을 열 수 없습니다.");
+    } finally {
+      setChatLoading(false);
+    }
+  }, [
+    canChat,
+    chatLoading,
+    chatRoomId,
+    chatTitle,
+    ensureChatRoom,
+    merged,
+    navigation,
+    serverCanChat,
+  ]);
+
   if (!merged) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -129,9 +199,6 @@ export default function PostDetailScreen() {
   const TypeIcon = isWalk ? Dog : Coffee;
   const themeColor = isWalk ? "#0ACF83" : "#FF9F43";
   const typeLabel = isWalk ? "산책 메이트" : "애견카페 모임";
-
-  // ✅ 백엔드 chat.canChat은 신뢰 못하니, 최소한 status로 버튼 제어
-  const canChat = merged.status === "OPEN";
 
   return (
     <View style={styles.container}>
@@ -220,18 +287,25 @@ export default function PostDetailScreen() {
 
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[styles.chatButton, !canChat && styles.chatButtonDisabled]}
+          style={[
+            styles.chatButton,
+            chatButtonDisabled && styles.chatButtonDisabled,
+          ]}
           activeOpacity={0.9}
-          disabled={!canChat}
-          onPress={() => {
-            // 백엔드 수정 불가 조건이면 여기서는 “채팅방 생성/연결”이 보장되지 않음
-            // 최소 UX: OPEN이 아니면 막고, OPEN이면 채팅탭으로 유도
-            navigation.navigate("ChatTab");
-          }}
+          disabled={chatButtonDisabled}
+          onPress={handleStartChat}
         >
-          <MessageCircle size={20} color="#FFFFFF" />
+          {chatLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <MessageCircle size={20} color="#FFFFFF" />
+          )}
           <Text style={styles.chatButtonText}>
-            {canChat ? "채팅하기" : "채팅 불가"}
+            {chatLoading
+              ? "채팅방 준비중..."
+              : canChat
+                ? "채팅하기"
+                : "채팅 불가"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -360,3 +434,4 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 16, fontWeight: "800", color: "#111827" },
 });
+
