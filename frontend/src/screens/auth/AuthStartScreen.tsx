@@ -16,7 +16,6 @@ const DEV_PHONE = "01040014908";
 export default function AuthStartScreen() {
   const navigation = useNavigation<Nav>();
   const setSession = useAuthStore((s) => s.setSession);
-  const setTokens = useAuthStore((s) => s.setTokens);
 
   const onDevLogin = async () => {
     try {
@@ -28,7 +27,6 @@ export default function AuthStartScreen() {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
       });
-      await setTokens(res.accessToken, res.refreshToken);
 
       navigation.navigate("Main");
     } catch (e: any) {

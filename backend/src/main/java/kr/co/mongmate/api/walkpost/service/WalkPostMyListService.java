@@ -4,7 +4,7 @@ import kr.co.mongmate.api.walkpost.dto.WalkPostMyListItem;
 import kr.co.mongmate.api.walkpost.dto.WalkPostMyListResponse;
 import kr.co.mongmate.api.walkpost.exception.WalkPostException;
 import kr.co.mongmate.domain.walkpost.entity.WalkPost;
-import kr.co.mongmate.domain.walkpost.enum.WalkPostStatus;
+import kr.co.mongmate.domain.walkpost.status.WalkPostStatus;
 import kr.co.mongmate.domain.walkpost.repository.WalkPostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
