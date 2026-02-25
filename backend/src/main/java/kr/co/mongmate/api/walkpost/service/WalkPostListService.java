@@ -4,6 +4,8 @@ import kr.co.mongmate.api.walkpost.dto.WalkPostListResponse;
 import kr.co.mongmate.domain.profile.entity.GuardianProfile;
 import kr.co.mongmate.domain.profile.repository.GuardianProfileRepository;
 import kr.co.mongmate.domain.walkpost.entity.WalkPost;
+import kr.co.mongmate.domain.walkpost.entity.WalkPostPhoto;
+import kr.co.mongmate.domain.walkpost.repository.WalkPostPhotoRepository;
 import kr.co.mongmate.domain.walkpost.repository.WalkPostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -12,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Collection;
@@ -29,7 +32,9 @@ public class WalkPostListService {
 
     private final WalkPostRepository walkPostRepository;
     private final GuardianProfileRepository guardianProfileRepository;
+    private final WalkPostPhotoRepository walkPostPhotoRepository;
 
+    @Transactional(readOnly = true)
     public WalkPostListResponse list(
             Integer page,
             Integer size,
@@ -56,9 +61,10 @@ public class WalkPostListService {
         Page<WalkPost> pageResult = walkPostRepository.findAllWithAuthor(regionId, statusFilter, pageable);
 
         Map<Long, String> nicknameByUserId = loadNicknames(pageResult.getContent());
+        Map<Long, String> firstPhotoByPostId = loadFirstPhotos(pageResult.getContent());
 
         List<WalkPostListResponse.Item> items = pageResult.getContent().stream()
-                .map(post -> toItem(post, nicknameByUserId))
+                .map(post -> toItem(post, nicknameByUserId, firstPhotoByPostId))
                 .toList();
 
         WalkPostListResponse.PageInfo pageInfo = new WalkPostListResponse.PageInfo(
@@ -117,7 +123,11 @@ public class WalkPostListService {
                 .collect(Collectors.toMap(GuardianProfile::getUserId, GuardianProfile::getNickname));
     }
 
-    private WalkPostListResponse.Item toItem(WalkPost post, Map<Long, String> nicknameByUserId) {
+    private WalkPostListResponse.Item toItem(
+            WalkPost post,
+            Map<Long, String> nicknameByUserId,
+            Map<Long, String> firstPhotoByPostId
+    ) {
         Long authorId = post.getAuthor() != null ? post.getAuthor().getId() : null;
         String nickname = nicknameByUserId.get(authorId);
         if (nickname == null || nickname.isBlank()) {
@@ -132,12 +142,36 @@ public class WalkPostListService {
                 post.getId(),
                 "WALK",
                 post.getTitle(),
+                firstPhotoByPostId.get(post.getId()),
                 region,
                 post.getDeadlineAt(),
                 nickname,
                 status,
                 post.getCreatedAt()
         );
+    }
+
+    private Map<Long, String> loadFirstPhotos(Collection<WalkPost> posts) {
+        List<Long> postIds = posts.stream()
+                .map(WalkPost::getId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        if (postIds.isEmpty()) {
+            return Map.of();
+        }
+        List<WalkPostPhoto> photos = walkPostPhotoRepository
+                .findAllByWalkPostIdInOrderByWalkPostIdAscSortOrderAsc(postIds);
+
+        Map<Long, String> firstPhotoByPostId = new java.util.HashMap<>();
+        for (WalkPostPhoto photo : photos) {
+            Long postId = photo.getWalkPost() != null ? photo.getWalkPost().getId() : null;
+            if (postId == null) {
+                continue;
+            }
+            firstPhotoByPostId.putIfAbsent(postId, photo.getPhotoUrl());
+        }
+        return firstPhotoByPostId;
     }
 
     private ResponseStatusException badRequest(String reason) {

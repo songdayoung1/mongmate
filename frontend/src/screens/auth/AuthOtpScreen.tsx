@@ -161,9 +161,8 @@ export default function AuthOtpScreen() {
           phoneNumber: cleanPhone,
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
-        });
+        }, true); // ✅ isNewUser = true
 
-        navigation.navigate("Main");
         return;
       }
 

@@ -7,6 +7,7 @@ import {
   RefreshControl,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -33,6 +34,7 @@ type Item = {
   authorNickname: string;
   createdAt: string;
   deadlineText: string;
+  photoUrl?: string | null;
 };
 
 function inferTypeAndTitle(
@@ -80,6 +82,7 @@ export default function CommunityScreen() {
             id: String(it.postId),
             type: fixed.type,
             title: fixed.title,
+            photoUrl: it.photoUrl ?? null,
             region:
               it.region?.displayName ??
               (it.region?.regionId
@@ -203,6 +206,9 @@ export default function CommunityScreen() {
         activeOpacity={0.9}
         onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
       >
+        {item.photoUrl ? (
+          <Image source={{ uri: item.photoUrl }} style={styles.cardImage} />
+        ) : null}
         <View style={styles.cardTop}>
           <View
             style={[
@@ -352,10 +358,18 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
     borderRadius: 18,
+    overflow: "hidden",
     padding: 16,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     ...SHADOWS.soft,
+  },
+  cardImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: 14,
+    marginBottom: 12,
+    backgroundColor: "#F3F4F6",
   },
   cardTop: {
     flexDirection: "row",

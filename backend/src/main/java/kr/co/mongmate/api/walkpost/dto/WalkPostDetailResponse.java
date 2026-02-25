@@ -1,6 +1,7 @@
 package kr.co.mongmate.api.walkpost.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record WalkPostDetailResponse(
         Long postId,
@@ -11,6 +12,7 @@ public record WalkPostDetailResponse(
         LocalDateTime deadlineAt,
         String meetAddress,
         String content,
+        List<String> photoUrls,
         String status,
         LocalDateTime createdAt,
         Chat chat
