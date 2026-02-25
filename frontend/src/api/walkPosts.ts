@@ -43,6 +43,10 @@ export type WalkPostDetailResponse = {
 export type ListWalkPostsParams = {
   page?: number;
   size?: number;
+  regionId?: number;
+  status?: WalkPostStatus;
+  recruitType?: WalkRecruitType;
+  authorId?: number;
 };
 
 export type WalkPostCreateRequest = {
@@ -56,6 +60,14 @@ export type WalkPostCreateRequest = {
 };
 
 export type WalkPostCreateResponse = { postId: number };
+export type WalkPostUpdateRequest = WalkPostCreateRequest;
+
+export type ListMyWalkPostsParams = {
+  page?: number;
+  size?: number;
+  status?: WalkPostStatus;
+  recruitType?: WalkRecruitType;
+};
 
 function toQuery(params: Record<string, any>) {
   const q = new URLSearchParams();
@@ -71,7 +83,7 @@ function toQuery(params: Record<string, any>) {
 export async function listWalkPosts(params: ListWalkPostsParams = {}) {
   return apiFetch<WalkPostListResponse>(`/api/walk-posts${toQuery(params)}`, {
     method: "GET",
-    auth: "none",
+    auth: params.authorId != null ? "required" : "none",
   });
 }
 
@@ -95,6 +107,37 @@ export async function getWalkPostDetailAuthed(postId: string | number) {
 export async function createWalkPost(req: WalkPostCreateRequest) {
   return apiFetch<WalkPostCreateResponse>(`/api/walk-posts`, {
     method: "POST",
+    auth: "required",
+    body: JSON.stringify({
+      title: req.title,
+      content: req.content,
+      regionId: req.regionId,
+      deadlineAt: req.deadlineAt ?? null,
+      meetAddress: req.meetAddress ?? null,
+      meetLat: req.meetLat ?? null,
+      meetLng: req.meetLng ?? null,
+    }),
+  });
+}
+
+/** GET /api/me/walk-posts (mapped to list API with authorId) */
+export async function listMyWalkPosts(
+  authorId: number,
+  params: ListMyWalkPostsParams = {},
+) {
+  return listWalkPosts({
+    ...params,
+    authorId,
+  });
+}
+
+/** PUT /api/walk-posts/{postId} */
+export async function updateWalkPost(
+  postId: string | number,
+  req: WalkPostUpdateRequest,
+) {
+  return apiFetch<WalkPostDetailResponse>(`/api/walk-posts/${postId}`, {
+    method: "PUT",
     auth: "required",
     body: JSON.stringify({
       title: req.title,

@@ -202,7 +202,11 @@ export default function MyPageScreen() {
 
         {/* 4. Menu */}
         <View style={styles.menuContainer}>
-          <MenuItem icon={FileText} label="내가 쓴 글" onPress={() => {}} />
+          <MenuItem
+            icon={FileText}
+            label="내가 쓴 글"
+            onPress={() => nav.navigate("MyPosts")}
+          />
           <MenuItem icon={Bell} label="알림 설정" onPress={() => {}} />
           <MenuItem icon={Settings} label="앱 설정" onPress={() => {}} />
         </View>

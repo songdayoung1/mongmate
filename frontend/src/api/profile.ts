@@ -1,11 +1,4 @@
 import { apiFetch } from "./client";
-import {
-  loadProfile,
-  upsertMyProfile,
-  createDogInStore,
-  updateDogInStore,
-  deleteDogInStore,
-} from "../mocks/profileStore";
 
 export type GuardianProfileDTO = {
   userId: number;
@@ -79,59 +72,42 @@ export type UpsertDogProfileRequest = {
   photoUrl?: string | null;
 };
 
-// ✅ 개발 중 mock 사용. 백엔드 연결되면 false로
-const USE_MOCK = true;
+const BASE_PATH = "/api/me";
 
-// ---------------- Mock (AsyncStorage 기반) ----------------
-async function mockGetProfile() {
-  return loadProfile();
-}
-async function mockUpsertProfile(body: UpsertProfileRequest) {
-  return upsertMyProfile(body);
-}
-async function mockCreateDog(body: UpsertDogProfileRequest) {
-  return createDogInStore(body);
-}
-async function mockUpdateDog(dogId: number, body: UpsertDogProfileRequest) {
-  return updateDogInStore(dogId, body);
-}
-async function mockDeleteDog(dogId: number) {
-  return deleteDogInStore(dogId);
-}
-
-// ---------------- Real API (추후) ----------------
 export async function getProfile() {
-  if (USE_MOCK) return mockGetProfile();
-  return apiFetch<ProfileResponse>("/api/me", { method: "GET" });
+  return apiFetch<ProfileResponse>(BASE_PATH, {
+    method: "GET",
+    auth: "required",
+  });
 }
 
 export async function upsertProfile(body: UpsertProfileRequest) {
-  if (USE_MOCK) return mockUpsertProfile(body);
-  return apiFetch<ProfileResponse>("/api/me/profile", {
+  return apiFetch<ProfileResponse>(`${BASE_PATH}/profile`, {
     method: "PUT",
+    auth: "required",
     body: JSON.stringify(body),
   });
 }
 
 export async function createDog(body: UpsertDogProfileRequest) {
-  if (USE_MOCK) return mockCreateDog(body);
-  return apiFetch<ProfileResponse>("/api/me/dogs", {
+  return apiFetch<ProfileResponse>(`${BASE_PATH}/dogs`, {
     method: "POST",
+    auth: "required",
     body: JSON.stringify(body),
   });
 }
 
 export async function updateDog(dogId: number, body: UpsertDogProfileRequest) {
-  if (USE_MOCK) return mockUpdateDog(dogId, body);
-  return apiFetch<ProfileResponse>(`/api/me/dogs/${dogId}`, {
+  return apiFetch<ProfileResponse>(`${BASE_PATH}/dogs/${dogId}`, {
     method: "PUT",
+    auth: "required",
     body: JSON.stringify(body),
   });
 }
 
 export async function deleteDog(dogId: number) {
-  if (USE_MOCK) return mockDeleteDog(dogId);
-  return apiFetch<ProfileResponse>(`/api/me/dogs/${dogId}`, {
+  return apiFetch<ProfileResponse>(`${BASE_PATH}/dogs/${dogId}`, {
     method: "DELETE",
+    auth: "required",
   });
 }

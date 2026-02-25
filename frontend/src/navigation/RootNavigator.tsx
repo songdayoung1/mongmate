@@ -18,6 +18,8 @@ import AuthOtpScreen from "../screens/auth/AuthOtpScreen";
 import EditMyProfileScreen from "../screens/my/EditMyProfileScreen";
 import DogManageScreen from "../screens/my/DogManageScreen";
 import DogEditScreen from "../screens/my/DogEditScreen";
+import MyPostsScreen from "../screens/my/MyPostsScreen";
+import EditMyPostScreen from "../screens/my/EditMyPostScreen";
 
 import { useAuthStore } from "../store/auth";
 
@@ -27,6 +29,8 @@ export type RootStackParamList = {
   PostDetail: { postId: string };
 
   EditMyProfile: undefined;
+  MyPosts: undefined;
+  EditMyPost: { postId: string };
   DogManage: undefined;
   DogEdit: { mode: "create" } | { mode: "edit"; dogId: number };
 
@@ -86,6 +90,8 @@ export default function RootNavigator() {
                 name="EditMyProfile"
                 component={EditMyProfileScreen}
               />
+              <Stack.Screen name="MyPosts" component={MyPostsScreen} />
+              <Stack.Screen name="EditMyPost" component={EditMyPostScreen} />
               <Stack.Screen name="DogManage" component={DogManageScreen} />
               <Stack.Screen name="DogEdit" component={DogEditScreen} />
             </>
