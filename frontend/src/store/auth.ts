@@ -113,8 +113,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthed: true,
     });
 
-    // ✅ 토큰이 유효할 때만 warm-up
-    ensureChatSocket().catch(() => {});
+    // ✅ 토큰 저장 직후 재연결(동기 타이밍 보장)
+    try {
+      await ensureChatSocket();
+    } catch {
+      // 연결 실패는 무시 (UI에서 재시도 가능)
+    }
   },
 
   setSession: async (session: Session) => {

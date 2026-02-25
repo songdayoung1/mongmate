@@ -1,4 +1,5 @@
 import { useAuthStore } from "../store/auth";
+import { tokenStorage } from "../lib/tokenStorage";
 
 const BASE_URL = "http://localhost:8080";
 
@@ -7,6 +8,7 @@ type AuthMode = "auto" | "required" | "none";
 type ApiFetchOptions = RequestInit & {
   auth?: AuthMode; // ✅ 기본 auto
   debug?: boolean; // ✅ true면 요청헤더 콘솔 출력
+  _retry?: boolean; // 내부용 (재시도 방지)
 };
 
 /**
@@ -50,12 +52,43 @@ async function readBodySafe(res: Response) {
   }
 }
 
+let refreshPromise: Promise<null | { userId: number; accessToken: string; refreshToken: string }> | null = null;
+
+async function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = await tokenStorage.getRefreshToken();
+    if (!refreshToken) return null;
+
+    const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const data = await readBodySafe(res);
+    if (!res.ok) return null;
+
+    if (!data || typeof data !== "object") return null;
+    const { userId, accessToken, refreshToken: newRefresh } = data as any;
+    if (!accessToken || !newRefresh) return null;
+    return { userId, accessToken, refreshToken: newRefresh };
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
-  const { auth = "auto", debug = false, headers, ...rest } = options;
+  const { auth = "auto", debug = false, headers, _retry, ...rest } = options;
 
   // ✅ store에서 토큰 가져오기 (필드명이 다르면 여기만 맞추면 됨)
   const token = useAuthStore.getState().accessToken;
@@ -105,8 +138,20 @@ export async function apiFetch<T>(
 
   const res = await fetch(url, { ...rest, headers: finalHeaders });
   const data = await readBodySafe(res);
-  if (res.status === 401) {
-    // 토큰 만료/무효 → 세션 정리
+
+  if (res.status === 401 && auth !== "none" && !_retry) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      const { setSession } = useAuthStore.getState();
+      await setSession({
+        userId: refreshed.userId,
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+      });
+      return apiFetch<T>(path, { ...options, _retry: true });
+    }
+
+    // refresh 실패 → 세션 정리
     try {
       const { logout } = useAuthStore.getState();
       if (logout) await logout();

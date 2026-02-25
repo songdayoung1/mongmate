@@ -84,6 +84,11 @@ public class JwtTokenProvider {
                 .getBody();
     }
 
+    public String getSubject(String token) {
+        Claims claims = parseClaims(token);
+        return claims.getSubject();
+    }
+
     private List<SimpleGrantedAuthority> extractAuthorities(Claims claims) {
         Object rolesObj = claims.get(ROLES_CLAIM);
 

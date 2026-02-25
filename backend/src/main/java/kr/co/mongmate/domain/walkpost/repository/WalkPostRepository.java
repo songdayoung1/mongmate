@@ -36,4 +36,10 @@ public interface WalkPostRepository extends JpaRepository<WalkPost, Long> {
             @Param("status") WalkPost.Status status,
             Pageable pageable
     );
+
+    Page<WalkPost> findByAuthor_IdAndStatusOrderByCreatedAtDesc(
+            Long authorId,
+            WalkPost.Status status,
+            Pageable pageable
+    );
 }

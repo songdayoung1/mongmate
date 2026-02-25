@@ -45,7 +45,6 @@ export default function AuthOtpScreen() {
 
   const hydrated = useAuthStore((s) => s.hydrated);
   const setSession = useAuthStore((s: AuthState) => s.setSession);
-  const setTokens = useAuthStore((s: AuthState) => s.setTokens);
 
   const [phone, setPhone] = React.useState(initialPhoneNumber ?? "");
   const [phoneLocked, setPhoneLocked] = React.useState(mode === "signup");
@@ -163,7 +162,6 @@ export default function AuthOtpScreen() {
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
         });
-        await setTokens(res.accessToken, res.refreshToken);
 
         navigation.navigate("Main");
         return;
@@ -178,7 +176,6 @@ export default function AuthOtpScreen() {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
       });
-      await setTokens(res.accessToken, res.refreshToken);
 
       navigation.navigate("Main");
     } catch (e: any) {

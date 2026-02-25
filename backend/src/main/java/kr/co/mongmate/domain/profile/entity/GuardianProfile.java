@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -33,8 +35,9 @@ public class GuardianProfile {
     @Column(name = "nickname", length = 30, nullable = false)
     private String nickname;
 
-    @Column(name = "gender_code", length = 10)
-    private String genderCode;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 10)
+    private Gender gender;
 
     @Column(name = "bio", length = 300)
     private String bio;
@@ -58,7 +61,7 @@ public class GuardianProfile {
         Long userId,
         User user,
         String nickname,
-        String genderCode,
+        Gender gender,
         String bio,
         String avatarUrl,
         Integer heartsCount,
@@ -69,7 +72,7 @@ public class GuardianProfile {
         this.userId = userId;
         assignUser(user);
         changeNickname(nickname);
-        this.genderCode = genderCode;
+        this.gender = gender;
         this.bio = bio;
         this.avatarUrl = avatarUrl;
         this.heartsCount = heartsCount != null ? heartsCount : 0;
@@ -96,8 +99,8 @@ public class GuardianProfile {
         touch();
     }
 
-    public void updateGender(String genderCode) {
-        this.genderCode = genderCode;
+    public void updateGender(Gender gender) {
+        this.gender = gender;
         touch();
     }
 
@@ -154,7 +157,7 @@ public class GuardianProfile {
         private Long userId;
         private User user;
         private String nickname;
-        private String genderCode;
+        private Gender gender;
         private String bio;
         private String avatarUrl;
         private Integer heartsCount;
@@ -180,8 +183,8 @@ public class GuardianProfile {
             return this;
         }
 
-        public GuardianProfileBuilder genderCode(String genderCode) {
-            this.genderCode = genderCode;
+        public GuardianProfileBuilder gender(Gender gender) {
+            this.gender = gender;
             return this;
         }
 
@@ -222,7 +225,7 @@ public class GuardianProfile {
                 userId,
                 user,
                 nickname,
-                genderCode,
+                gender,
                 bio,
                 avatarUrl,
                 heartsCount,
@@ -231,5 +234,11 @@ public class GuardianProfile {
                 updatedAt
             );
         }
+    }
+
+    public enum Gender {
+        MALE,
+        FEMALE,
+        UNKNOWN
     }
 }
