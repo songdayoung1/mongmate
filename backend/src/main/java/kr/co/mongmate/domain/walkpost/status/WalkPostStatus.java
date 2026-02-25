@@ -1,4 +1,4 @@
-package kr.co.mongmate.domain.walkpost.enum;
+package kr.co.mongmate.domain.walkpost.status;
 
 import kr.co.mongmate.domain.walkpost.entity.WalkPost;
 

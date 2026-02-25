@@ -2,6 +2,7 @@ package kr.co.mongmate.api.auth.controller;
 
 import kr.co.mongmate.api.auth.dto.*;
 import kr.co.mongmate.api.auth.service.LoginService;
+import kr.co.mongmate.api.auth.service.RefreshTokenService;
 import kr.co.mongmate.api.auth.service.SignUpService;
 import kr.co.mongmate.api.auth.service.SmsAuthService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class AuthController {
     private final SmsAuthService smsAuthService;
     private final SignUpService signUpService;
     private final LoginService loginService;
+    private final RefreshTokenService refreshTokenService;
 
 
     /**
@@ -58,6 +60,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         LoginResponse response = loginService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 토큰 재발급 (refresh)
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshTokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        RefreshTokenResponse response = refreshTokenService.refresh(request);
         return ResponseEntity.ok(response);
     }
 

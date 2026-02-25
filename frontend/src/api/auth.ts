@@ -45,3 +45,11 @@ export async function login(phoneNumber: string) {
     body: JSON.stringify({ phoneNumber }),
   });
 }
+
+export async function refreshTokens(refreshToken: string) {
+  return apiFetch<AuthResponse>("/api/auth/refresh", {
+    method: "POST",
+    auth: "none",
+    body: JSON.stringify({ refreshToken }),
+  });
+}
