@@ -19,6 +19,9 @@ import EditMyProfileScreen from "../screens/my/EditMyProfileScreen";
 import DogManageScreen from "../screens/my/DogManageScreen";
 import DogEditScreen from "../screens/my/DogEditScreen";
 
+import GuardianProfileSetupScreen from "../screens/auth/GuardianProfileSetupScreen";
+import DogProfileSetupScreen from "../screens/auth/DogProfileSetupScreen";
+
 import { useAuthStore } from "../store/auth";
 
 export type RootStackParamList = {
@@ -29,6 +32,8 @@ export type RootStackParamList = {
   EditMyProfile: undefined;
   DogManage: undefined;
   DogEdit: { mode: "create" } | { mode: "edit"; dogId: number };
+  GuardianProfileSetup: undefined;
+  DogProfileSetup: undefined;
 
   AuthStart: undefined;
   SignupInfo: undefined;
@@ -59,6 +64,7 @@ const theme = {
 export default function RootNavigator() {
   const hydrated = useAuthStore((s) => s.hydrated);
   const isAuthed = useAuthStore((s) => s.isAuthed);
+  const isNewUser = useAuthStore((s) => s.isNewUser);
 
   if (!hydrated) return null;
 
@@ -77,18 +83,25 @@ export default function RootNavigator() {
           }}
         >
           {isAuthed ? (
-            <>
-              <Stack.Screen name="Main" component={MainTabs} />
-              <Stack.Screen name="CreatePost" component={CreatePostScreen} />
-              <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+            isNewUser ? (
+              <>
+                <Stack.Screen name="GuardianProfileSetup" component={GuardianProfileSetupScreen} />
+                <Stack.Screen name="DogProfileSetup" component={DogProfileSetupScreen} />
+              </>
+            ) : (
+              <>
+                <Stack.Screen name="Main" component={MainTabs} />
+                <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+                <Stack.Screen name="PostDetail" component={PostDetailScreen} />
 
-              <Stack.Screen
-                name="EditMyProfile"
-                component={EditMyProfileScreen}
-              />
-              <Stack.Screen name="DogManage" component={DogManageScreen} />
-              <Stack.Screen name="DogEdit" component={DogEditScreen} />
-            </>
+                <Stack.Screen
+                  name="EditMyProfile"
+                  component={EditMyProfileScreen}
+                />
+                <Stack.Screen name="DogManage" component={DogManageScreen} />
+                <Stack.Screen name="DogEdit" component={DogEditScreen} />
+              </>
+            )
           ) : (
             <>
               <Stack.Screen name="AuthStart" component={AuthStartScreen} />

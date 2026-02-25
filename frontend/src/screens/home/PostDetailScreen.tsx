@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -107,6 +108,7 @@ export default function PostDetailScreen() {
       detail?.createdAt ?? post?.createdAt ?? new Date().toISOString();
     const status = post?.status ?? detail?.status ?? "OPEN";
     const placeName = detail?.meetAddress ?? post?.placeName ?? region;
+    const photoUrls = detail?.photoUrls ?? [];
 
     // 타입: store가 제일 정확(우리는 prefix로 보정함)
     const type = post?.type ?? "WALK";
@@ -121,6 +123,7 @@ export default function PostDetailScreen() {
       status,
       placeName,
       type,
+      photoUrls,
     };
   }, [post, detail]);
 
@@ -225,6 +228,23 @@ export default function PostDetailScreen() {
           <View style={{ paddingVertical: 10 }}>
             <ActivityIndicator />
           </View>
+        )}
+
+        {merged.photoUrls.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.photoStrip}
+            contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+          >
+            {merged.photoUrls.map((url, idx) => (
+              <Image
+                key={`${url}-${idx}`}
+                source={{ uri: url }}
+                style={styles.photo}
+              />
+            ))}
+          </ScrollView>
         )}
 
         <View
@@ -336,6 +356,15 @@ const styles = StyleSheet.create({
   },
   shareButton: { padding: 4 },
   scrollContent: { padding: 20 },
+  photoStrip: {
+    marginBottom: 14,
+  },
+  photo: {
+    width: SCREEN_WIDTH - 60,
+    height: 220,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+  },
 
   typeBadge: {
     alignSelf: "flex-start",
@@ -434,4 +463,3 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 16, fontWeight: "800", color: "#111827" },
 });
-

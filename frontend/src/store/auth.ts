@@ -21,6 +21,7 @@ export type Session = {
 export type AuthState = {
   hydrated: boolean;
   isAuthed: boolean;
+  isNewUser: boolean;
 
   userId: number | null;
   phoneNumber: string | null;
@@ -31,7 +32,8 @@ export type AuthState = {
 
   init: () => Promise<void>;
   setTokens: (accessToken: string, refreshToken?: string) => Promise<void>;
-  setSession: (session: Session) => Promise<void>;
+  setSession: (session: Session, isNewUser?: boolean) => Promise<void>;
+  setNewUser: (isNew: boolean) => void;
   login: (phoneNumber: string) => Promise<"login">;
   logout: () => Promise<void>;
 };
@@ -48,6 +50,7 @@ function sanitizeToken(t: any): string | null {
 export const useAuthStore = create<AuthState>((set, get) => ({
   hydrated: false,
   isAuthed: false,
+  isNewUser: false,
 
   userId: null,
   phoneNumber: null,
@@ -121,7 +124,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setSession: async (session: Session) => {
+  setSession: async (session: Session, isNewUser = false) => {
     await get().setTokens(session.accessToken, session.refreshToken);
 
     if (session.userId != null)
@@ -133,8 +136,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       userId: session.userId ?? get().userId,
       phoneNumber: session.phoneNumber ?? get().phoneNumber,
       user: session.me ?? get().user,
+      isNewUser: isNewUser,
     });
   },
+
+  setNewUser: (isNew: boolean) => set({ isNewUser: isNew }),
 
   login: async (phoneNumber: string) => {
     const res = await loginApi(phoneNumber);
@@ -168,6 +174,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     console.log("🔒 Resetting store state...");
     set({
       isAuthed: false,
+      isNewUser: false,
       accessToken: null,
       refreshToken: null,
       userId: null,

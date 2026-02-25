@@ -7,6 +7,7 @@ export type WalkPostListItem = {
   postId: number;
   recruitType: WalkRecruitType;
   title: string;
+  photoUrl?: string | null;
   region: { regionId: number; displayName: string | null } | null;
   deadlineAt: string | null;
   authorNickname: string;
@@ -30,6 +31,7 @@ export type WalkPostDetailResponse = {
   recruitType?: WalkRecruitType;
   title: string;
   content?: string | null;
+  photoUrls?: string[] | null;
   region?: { regionId: number; displayName: string | null } | null;
   deadlineAt?: string | null;
   authorNickname?: string;

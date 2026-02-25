@@ -19,6 +19,7 @@ public record WalkPostListResponse(
             Long postId,
             String recruitType,
             String title,
+            String photoUrl,
             Region region,
             LocalDateTime deadlineAt,
             String authorNickname,
