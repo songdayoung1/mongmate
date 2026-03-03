@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, FlatList, RefreshControl, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,8 +7,13 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import TopHeader from "../../components/TopHeader";
 import AnimatedButton from "../../components/AnimatedButton";
 import { COLORS, SHADOWS } from "../../constants/theme";
-import type { ChatStackParamList } from "../../navigation/ChatStackNavigator";
+import { GUARDIAN_PLACEHOLDER_URI } from "../../constants/placeholders";
+import type {
+  ChatRoomPostSummary,
+  ChatStackParamList,
+} from "../../navigation/ChatStackNavigator";
 import { loadChatRooms, type ChatRoomListItemDto } from "../../api/chat";
+import { useChatMetaStore } from "../../store/chatMeta";
 
 type Nav = NativeStackNavigationProp<ChatStackParamList, "ChatList">;
 
@@ -19,6 +24,8 @@ type RoomItem = {
   unreadCount: number;
   updatedAtTs: number;
   timeText: string;
+  post?: ChatRoomPostSummary;
+  avatarUrl?: string | null;
 };
 
 function formatTimeFromIso(iso: string) {
@@ -42,8 +49,38 @@ function clampPreview(s?: string) {
   return s.length > 35 ? s.slice(0, 35) + "…" : s;
 }
 
-function dtoToRoomItem(dto: ChatRoomListItemDto): RoomItem {
+function extractLinkedPost(
+  dto: ChatRoomListItemDto,
+): ChatRoomPostSummary | undefined {
+  const anyDto = dto as ChatRoomListItemDto & {
+    linkedPost?: any;
+    post?: any;
+    walkPost?: any;
+  };
+  const raw = anyDto.linkedPost ?? anyDto.post ?? anyDto.walkPost;
+  if (!raw) return undefined;
+  const id = raw.postId ?? raw.id ?? raw.walkPostId;
+  if (id === undefined || id === null) return undefined;
+  return {
+    postId: String(id),
+    title: raw.title ?? `산책글 #${id}`,
+    recruitType: raw.recruitType ?? raw.type ?? undefined,
+    status: raw.status ?? raw.postStatus ?? undefined,
+  };
+}
+
+function dtoToRoomItem(
+  dto: ChatRoomListItemDto,
+  fallback?: ChatRoomPostSummary,
+): RoomItem {
   const ts = new Date(dto.updatedAt).getTime();
+  const avatarUrl =
+    dto.avatarUrl ??
+    dto.counterAvatarUrl ??
+    dto.counterpartAvatarUrl ??
+    dto.participantAvatarUrl ??
+    (dto as any).memberAvatarUrl ??
+    null;
   return {
     roomId: String(dto.roomId),
     title: dto.title || `채팅방 ${dto.roomId}`,
@@ -51,6 +88,8 @@ function dtoToRoomItem(dto: ChatRoomListItemDto): RoomItem {
     unreadCount: dto.unreadCount ?? 0,
     updatedAtTs: Number.isFinite(ts) ? ts : 0,
     timeText: dto.updatedAt ? formatTimeFromIso(dto.updatedAt) : "",
+    post: extractLinkedPost(dto) ?? fallback,
+    avatarUrl,
   };
 }
 
@@ -58,12 +97,21 @@ export default function ChatListScreen() {
   const navigation = useNavigation<Nav>();
   const [rooms, setRooms] = React.useState<RoomItem[]>([]);
   const [refreshing, setRefreshing] = React.useState(false);
+  const saveChatMeta = useChatMetaStore((s) => s.saveMeta);
+  const getMeta = useChatMetaStore((s) => s.getMeta);
 
   const fetchList = React.useCallback(async () => {
     setRefreshing(true);
     try {
       const list = await loadChatRooms();
-      const items = list.map(dtoToRoomItem);
+      const items = list.map((dto) => {
+        const fallback = getMeta(String(dto.roomId));
+        const item = dtoToRoomItem(dto, fallback);
+        if (item.post) {
+          saveChatMeta(item.roomId, item.post);
+        }
+        return item;
+      });
       items.sort((a, b) => b.updatedAtTs - a.updatedAtTs);
       setRooms(items);
     } catch (e: any) {
@@ -71,7 +119,7 @@ export default function ChatListScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [getMeta, saveChatMeta]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -90,6 +138,8 @@ export default function ChatListScreen() {
     navigation.navigate("ChatRoom", {
       roomId: room.roomId,
       title: room.title,
+      post: room.post,
+      avatarUrl: room.avatarUrl ?? undefined,
     });
   };
 
@@ -99,9 +149,21 @@ export default function ChatListScreen() {
       activeOpacity={0.95}
       onPress={() => onPressRoom(item)}
     >
-      <View style={styles.avatarPlaceholder} />
+      <View style={styles.avatarPlaceholder}>
+        <Image
+          source={{
+            uri: item.avatarUrl || GUARDIAN_PLACEHOLDER_URI,
+          }}
+          style={styles.avatarImage}
+        />
+      </View>
 
       <View style={styles.content}>
+        {item.post && (
+          <Text style={styles.postLabel} numberOfLines={1}>
+            #{item.post.postId} · {item.post.title}
+          </Text>
+        )}
         <View style={styles.topRow}>
           <Text style={styles.title} numberOfLines={1}>
             {item.title}
@@ -174,9 +236,17 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: COLORS.background,
     marginRight: 14,
+    overflow: "hidden",
   },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 24 },
 
   content: { flex: 1, justifyContent: "center", gap: 4 },
+  postLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
+    marginBottom: 2,
+  },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TopHeader from "../../components/TopHeader";
@@ -13,6 +14,7 @@ import { useDeleteDog, useProfile } from "../../hooks/profile";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
+import { resolveDogPhotoUri } from "../../utils/dog";
 
 function genderKo(code: string | null | undefined) {
   const c = (code ?? "").toUpperCase();
@@ -54,10 +56,7 @@ export default function DogManageScreen() {
         onBack={{ name: "Main", params: { screen: "MyPage" } }}
       />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 40 }}>
         <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => nav.navigate("DogEdit", { mode: "create" })}
@@ -74,7 +73,13 @@ export default function DogManageScreen() {
           dogs.map((d) => (
             <View key={d.id} style={styles.card}>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={styles.avatar} />
+                <View style={styles.avatar}>
+                  <Image
+                    source={{ uri: resolveDogPhotoUri(d.photoUrl) }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{d.name}</Text>
                   <Text style={styles.meta}>
@@ -135,10 +140,11 @@ export default function DogManageScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F9FAFB" },
-  scroll: { flex: 1, paddingHorizontal: 16 },
+  scroll: { flex: 1 },
 
   primaryBtn: {
     marginTop: 16,
+    marginHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 999,
     backgroundColor: "#0ACF83",
@@ -152,6 +158,7 @@ const styles = StyleSheet.create({
 
   card: {
     marginTop: 12,
+    marginHorizontal: 20,
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 14,
@@ -162,7 +169,9 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     backgroundColor: "#E5E7EB",
+    overflow: "hidden",
   },
+  avatarImage: { width: "100%", height: "100%" },
   name: { fontSize: 15, fontWeight: "900", color: "#111827" },
   meta: { fontSize: 12, color: "#6B7280", marginTop: 4 },
 

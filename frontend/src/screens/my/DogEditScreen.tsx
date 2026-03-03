@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,16 +11,20 @@ import {
   Modal,
   Pressable,
   FlatList,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TopHeader from "../../components/TopHeader";
 import { useCreateDog, useProfile, useUpdateDog } from "../../hooks/profile";
+import { usePhotoPicker } from "../../hooks/usePhotoPicker";
+import { saveLocalImageCopy } from "../../lib/localUpload";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 type R = RouteProp<RootStackParamList, "DogEdit">;
 type GenderCode = "M" | "F" | null;
+type BackendGender = "MALE" | "FEMALE" | "UNKNOWN";
 
 const BREEDS = [
   "푸들",
@@ -48,11 +52,26 @@ function toIntOrNull(v: string) {
   return Number.isFinite(n) ? n : null;
 }
 
+function isLocalUri(uri: string) {
+  return (
+    uri.startsWith("file://") ||
+    uri.startsWith("ph://") ||
+    uri.startsWith("assets-library://") ||
+    uri.startsWith("blob:")
+  );
+}
+
 function normalizeGender(code: string | null | undefined): GenderCode {
   const c = (code ?? "").toUpperCase();
   if (c === "M" || c === "MALE") return "M";
   if (c === "F" || c === "FEMALE") return "F";
   return null;
+}
+
+function toBackendGender(code: GenderCode): BackendGender {
+  if (code === "M") return "MALE";
+  if (code === "F") return "FEMALE";
+  return "UNKNOWN";
 }
 
 export default function DogEditScreen() {
@@ -77,7 +96,19 @@ export default function DogEditScreen() {
   const [isNeutered, setIsNeutered] = useState<boolean>(false);
   const [vaccinationNote, setVaccinationNote] = useState("");
   const [dispositionText, setDispositionText] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
+  const {
+    photos: dogPhotos,
+    pickFromLibrary: pickDogPhoto,
+    captureFromCamera: captureDogPhoto,
+    removePhoto: removeDogPhoto,
+    resetPhotos: resetDogPhotos,
+  } = usePhotoPicker({
+    maxCount: 1,
+    initialUris: editingDog?.photoUrl ? [editingDog.photoUrl] : [],
+    alertTitle: "안내",
+    alertMessage: "반려견 사진은 1장만 등록할 수 있어요.",
+  });
+  const dogPhoto = dogPhotos[0] ?? null;
 
   const [breedModalOpen, setBreedModalOpen] = useState(false);
 
@@ -91,7 +122,7 @@ export default function DogEditScreen() {
       setIsNeutered(false);
       setVaccinationNote("");
       setDispositionText("");
-      setPhotoUrl("");
+      resetDogPhotos();
       return;
     }
 
@@ -103,7 +134,6 @@ export default function DogEditScreen() {
     setIsNeutered(!!editingDog.isNeutered);
     setVaccinationNote(editingDog.vaccinationNote ?? "");
     setDispositionText(editingDog.dispositionText ?? "");
-    setPhotoUrl(editingDog.photoUrl ?? "");
   }, [editingDog]);
 
   const effectiveBreed = useMemo(() => {
@@ -133,15 +163,21 @@ export default function DogEditScreen() {
       return;
     }
 
+    let photoUrlToSave: string | null = dogPhoto ? dogPhoto.uri : null;
+    if (dogPhoto && isLocalUri(dogPhoto.uri)) {
+      const saved = await saveLocalImageCopy(dogPhoto.uri, { category: "profile" });
+      photoUrlToSave = saved.uri;
+    }
+
     const body = {
       name: name.trim(),
       breed: effectiveBreed ? effectiveBreed : null,
       ageYears: ageYears.trim() ? toIntOrNull(ageYears.trim()) : null,
-      genderCode,
+      genderCode: toBackendGender(genderCode),
       isNeutered,
       vaccinationNote: vaccinationNote.trim() ? vaccinationNote.trim() : null,
       dispositionText: dispositionText.trim() ? dispositionText.trim() : null,
-      photoUrl: photoUrl.trim() ? photoUrl.trim() : null,
+      photoUrl: photoUrlToSave,
     };
 
     try {
@@ -161,6 +197,24 @@ export default function DogEditScreen() {
   };
 
   const pending = createMut.isPending || updateMut.isPending;
+
+  const handlePickDogPhoto = useCallback(async () => {
+    if (pending) return;
+    await pickDogPhoto();
+  }, [pending, pickDogPhoto]);
+
+  const handleCaptureDogPhoto = useCallback(async () => {
+    if (pending) return;
+    await captureDogPhoto();
+  }, [pending, captureDogPhoto]);
+
+  const handleClearDogPhoto = useCallback(() => {
+    if (pending) return;
+    if (dogPhoto) {
+      removeDogPhoto(dogPhoto.id);
+    }
+    resetDogPhotos();
+  }, [pending, dogPhoto, removeDogPhoto, resetDogPhotos]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -188,6 +242,44 @@ export default function DogEditScreen() {
             placeholder="예) 콩이"
             maxLength={30}
           />
+
+          <Text style={[styles.label, { marginTop: 12 }]}>반려견 사진</Text>
+          <View style={styles.photoRow}>
+            <View style={styles.photoPreviewBox}>
+              {dogPhoto ? (
+                <Image source={{ uri: dogPhoto.uri }} style={styles.photoImage} />
+              ) : (
+                <Text style={styles.photoPlaceholderText}>+</Text>
+              )}
+            </View>
+            <View style={styles.photoActions}>
+              <TouchableOpacity
+                style={styles.photoBtn}
+                onPress={handlePickDogPhoto}
+                disabled={pending}
+              >
+                <Text style={styles.photoBtnText}>사진첩에서 선택</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.photoBtn}
+                onPress={handleCaptureDogPhoto}
+                disabled={pending}
+              >
+                <Text style={styles.photoBtnText}>카메라 촬영</Text>
+              </TouchableOpacity>
+              {dogPhoto && (
+                <TouchableOpacity
+                  style={[styles.photoBtn, styles.photoBtnGhost]}
+                  onPress={handleClearDogPhoto}
+                  disabled={pending}
+                >
+                  <Text style={[styles.photoBtnText, styles.photoBtnGhostText]}>
+                    초기화
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
 
           <Text style={[styles.label, { marginTop: 12 }]}>견종</Text>
           <TouchableOpacity
@@ -288,16 +380,6 @@ export default function DogEditScreen() {
             maxLength={100}
           />
 
-          <Text style={[styles.label, { marginTop: 12 }]}>사진 URL</Text>
-          <TextInput
-            style={styles.input}
-            value={photoUrl}
-            onChangeText={setPhotoUrl}
-            placeholder="https://..."
-            maxLength={255}
-            autoCapitalize="none"
-          />
-
           <TouchableOpacity
             style={[styles.primaryBtn, pending && { opacity: 0.6 }]}
             onPress={onSave}
@@ -375,6 +457,32 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   selectText: { fontSize: 14, fontWeight: "700", color: "#111827" },
+
+  photoRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 4, marginTop: 8 },
+  photoPreviewBox: {
+    width: 76,
+    height: 76,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  photoImage: { width: "100%", height: "100%" },
+  photoPlaceholderText: { fontSize: 28, color: "#D1D5DB", fontWeight: "900" },
+  photoActions: { flex: 1, gap: 8 },
+  photoBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "#0ACF83",
+    alignSelf: "flex-start",
+  },
+  photoBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  photoBtnGhost: { backgroundColor: "#F4F4F5" },
+  photoBtnGhostText: { color: "#374151" },
 
   pillRow: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
   pill: {

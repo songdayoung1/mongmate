@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -19,14 +20,18 @@ import {
   MessageCircle,
   Share2,
   Clock,
+  Edit3,
 } from "lucide-react-native";
 import { usePostStore } from "../../store/posts";
+import { useLocalMediaStore, EMPTY_MEDIA } from "../../store/localMedia";
 import { RootStackParamList } from "../../navigation/RootNavigator";
 import {
   getWalkPostDetail,
   getWalkPostDetailAuthed,
   type WalkPostDetailResponse,
 } from "../../api/walkPosts";
+import { useChatMetaStore } from "../../store/chatMeta";
+import { COMMUNITY_PLACEHOLDER_URI } from "../../constants/placeholders";
 
 type PostDetailRouteProp = RouteProp<RootStackParamList, "PostDetail">;
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -34,9 +39,13 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 export default function PostDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<PostDetailRouteProp>();
-  const { postId } = route.params;
+  const { postId, allowEdit = false } = route.params;
 
   const posts = usePostStore((s) => s.posts);
+  const localImages = useLocalMediaStore(
+    (s) => s.postMedia[String(postId)] ?? EMPTY_MEDIA,
+  );
+  const saveChatMeta = useChatMetaStore((s) => s.saveMeta);
   const post = useMemo(
     () => posts.find((p) => p.id === postId),
     [posts, postId],
@@ -86,6 +95,10 @@ export default function PostDetailScreen() {
     return null;
   }, [detail, postId]);
 
+  const goToEdit = useCallback(() => {
+    navigation.navigate("EditMyPost", { postId: String(postId) });
+  }, [navigation, postId]);
+
   // store + detail 합성 (detail이 있으면 우선)
   const merged = useMemo(() => {
     if (!post && !detail) return null;
@@ -127,9 +140,19 @@ export default function PostDetailScreen() {
   // ✅ 백엔드 chat.canChat은 신뢰 못하니, 최소한 status + roomId 체크
   const chatRoomId = detail?.chat?.roomId ?? null;
   const serverCanChat = detail?.chat?.canChat;
+  const serverBlocksChat = serverCanChat === false;
   const chatTitle = merged?.title ?? "채팅";
-  const canChat = merged?.status === "OPEN" && serverCanChat !== false;
+  const canChat = merged?.status === "OPEN" && !serverBlocksChat;
   const chatButtonDisabled = !canChat || chatLoading;
+  const chatPostSummary = useMemo(() => {
+    if (!merged) return undefined;
+    return {
+      postId: String(postId),
+      title: merged.title,
+      recruitType: merged.type,
+      status: merged.status,
+    };
+  }, [merged, postId]);
 
   const handleStartChat = useCallback(async () => {
     if (!canChat || chatLoading || !merged) return;
@@ -137,7 +160,7 @@ export default function PostDetailScreen() {
     setChatLoading(true);
     try {
       const resolvedRoomId =
-        chatRoomId && serverCanChat !== false
+        chatRoomId && !serverBlocksChat
           ? chatRoomId
           : await ensureChatRoom();
 
@@ -155,11 +178,15 @@ export default function PostDetailScreen() {
             params: {
               roomId: String(resolvedRoomId),
               title: chatTitle,
+              post: chatPostSummary,
             },
           },
         },
         merge: true,
       } as never);
+      if (chatPostSummary?.postId) {
+        saveChatMeta(String(resolvedRoomId), chatPostSummary);
+      }
     } catch (e: any) {
       Alert.alert("채팅 시작 실패", e?.message ?? "채팅방을 열 수 없습니다.");
     } finally {
@@ -170,10 +197,12 @@ export default function PostDetailScreen() {
     chatLoading,
     chatRoomId,
     chatTitle,
+    chatPostSummary,
     ensureChatRoom,
     merged,
     navigation,
-    serverCanChat,
+    saveChatMeta,
+    serverBlocksChat,
   ]);
 
   if (!merged) {
@@ -214,9 +243,20 @@ export default function PostDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {merged.region}
           </Text>
-          <TouchableOpacity style={styles.shareButton} hitSlop={10}>
-            <Share2 size={24} color="#111827" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {allowEdit && (
+              <TouchableOpacity
+                style={styles.editButton}
+                hitSlop={10}
+                onPress={goToEdit}
+              >
+                <Edit3 size={22} color="#111827" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.shareButton} hitSlop={10}>
+              <Share2 size={24} color="#111827" />
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -238,6 +278,20 @@ export default function PostDetailScreen() {
             · {merged.status}
           </Text>
         </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.mediaScroll}
+          contentContainerStyle={{ gap: 12 }}
+        >
+          {(localImages.length > 0
+            ? localImages
+            : [COMMUNITY_PLACEHOLDER_URI]
+          ).map((uri, idx) => (
+            <Image source={{ uri }} key={`${uri}-${idx}`} style={styles.mediaImage} />
+          ))}
+        </ScrollView>
 
         <Text style={styles.title}>{merged.title}</Text>
 
@@ -334,6 +388,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginHorizontal: 16,
   },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  editButton: { padding: 4 },
   shareButton: { padding: 4 },
   scrollContent: { padding: 20 },
 
@@ -349,6 +405,12 @@ const styles = StyleSheet.create({
   },
   typeText: { fontSize: 12, fontWeight: "700" },
   statusText: { fontSize: 12, fontWeight: "700" },
+  mediaScroll: { marginBottom: 16 },
+  mediaImage: {
+    width: SCREEN_WIDTH - 60,
+    height: 220,
+    borderRadius: 18,
+  },
 
   title: {
     fontSize: 22,

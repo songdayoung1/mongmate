@@ -1,4 +1,14 @@
 import { apiFetch } from "./client";
+import type { WalkPostStatus, WalkRecruitType } from "./walkPosts";
+
+export type ChatRoomLinkedPostDto = {
+  postId: number;
+  title: string;
+  recruitType?: WalkRecruitType;
+  status?: WalkPostStatus | string;
+  regionText?: string | null;
+  authorNickname?: string | null;
+};
 
 export type ChatRoomListItemDto = {
   roomId: string;
@@ -13,6 +23,13 @@ export type ChatRoomListItemDto = {
     sentAt: string;
   };
   updatedAt: string;
+  linkedPost?: ChatRoomLinkedPostDto | null;
+  post?: ChatRoomLinkedPostDto | null;
+  walkPost?: ChatRoomLinkedPostDto | null;
+  avatarUrl?: string | null;
+  counterAvatarUrl?: string | null;
+  counterpartAvatarUrl?: string | null;
+  participantAvatarUrl?: string | null;
 };
 
 export type ChatRoomStateDto = {

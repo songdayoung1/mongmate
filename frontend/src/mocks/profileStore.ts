@@ -33,6 +33,7 @@ function buildDefault(): ProfileResponse {
     },
     neighborhood: null,
     dogs: dogProfile.map((d) => ({ ...d })),
+    profileExists: true,
   };
 }
 
@@ -89,6 +90,7 @@ export async function upsertMyProfile(body: UpsertProfileRequest) {
     },
     // ✅ 위치 미구현 고정
     neighborhood: null,
+    profileExists: true,
   };
 
   await saveProfile(next);
@@ -115,7 +117,11 @@ export async function createDogInStore(body: UpsertDogProfileRequest) {
     updatedAt: now,
   };
 
-  const next: ProfileResponse = { ...prev, dogs: [newDog, ...prev.dogs] };
+  const next: ProfileResponse = {
+    ...prev,
+    dogs: [newDog, ...prev.dogs],
+    profileExists: true,
+  };
   await saveProfile(next);
   return next;
 }
@@ -144,7 +150,7 @@ export async function updateDogInStore(
         },
   );
 
-  const next: ProfileResponse = { ...prev, dogs: nextDogs };
+  const next: ProfileResponse = { ...prev, dogs: nextDogs, profileExists: true };
   await saveProfile(next);
   return next;
 }
@@ -154,6 +160,7 @@ export async function deleteDogInStore(dogId: number) {
   const next: ProfileResponse = {
     ...prev,
     dogs: prev.dogs.filter((d) => d.id !== dogId),
+    profileExists: prev.profileExists,
   };
   await saveProfile(next);
   return next;

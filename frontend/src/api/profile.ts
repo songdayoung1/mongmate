@@ -1,11 +1,5 @@
 import { apiFetch } from "./client";
-import {
-  loadProfile,
-  upsertMyProfile,
-  createDogInStore,
-  updateDogInStore,
-  deleteDogInStore,
-} from "../mocks/profileStore";
+import { useAuthStore } from "../store/auth";
 
 export type GuardianProfileDTO = {
   userId: number;
@@ -52,20 +46,14 @@ export type ProfileResponse = {
   guardianProfile: GuardianProfileDTO | null;
   neighborhood: UserNeighborhoodDTO | null;
   dogs: DogProfileDTO[];
+  profileExists: boolean;
 };
 
 export type UpsertProfileRequest = {
-  guardian: {
-    nickname: string;
-    genderCode?: string | null;
-    bio?: string | null;
-    avatarUrl?: string | null;
-  };
-  neighborhood?: {
-    regionId: number;
-    radiusMeters?: number | null;
-    active?: boolean;
-  } | null;
+  nickname: string;
+  genderCode?: string | null;
+  bio?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type UpsertDogProfileRequest = {
@@ -79,59 +67,211 @@ export type UpsertDogProfileRequest = {
   photoUrl?: string | null;
 };
 
-// ✅ 개발 중 mock 사용. 백엔드 연결되면 false로
-const USE_MOCK = true;
+type BackendProfileResponse = {
+  userId: number;
+  nickname: string;
+  genderCode: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  heartsCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
 
-// ---------------- Mock (AsyncStorage 기반) ----------------
-async function mockGetProfile() {
-  return loadProfile();
-}
-async function mockUpsertProfile(body: UpsertProfileRequest) {
-  return upsertMyProfile(body);
-}
-async function mockCreateDog(body: UpsertDogProfileRequest) {
-  return createDogInStore(body);
-}
-async function mockUpdateDog(dogId: number, body: UpsertDogProfileRequest) {
-  return updateDogInStore(dogId, body);
-}
-async function mockDeleteDog(dogId: number) {
-  return deleteDogInStore(dogId);
+type BackendDogResponse = {
+  dogId: number;
+  guardianUserId: number | null;
+  name: string;
+  breed: string | null;
+  ageYears: number | null;
+  genderCode: string | null;
+  isNeutered: boolean | null;
+  vaccinationNote: string | null;
+  dispositionText: string | null;
+  photoUrl: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+type BackendDogListResponse = {
+  items: BackendDogResponse[];
+};
+
+const PROFILE_PATH = "/api/profile";
+const DOG_PATH = "/api/dogs";
+
+function isNotFoundError(err: unknown) {
+  if (!(err instanceof Error) || typeof err.message !== "string") {
+    return false;
+  }
+  const msg = err.message.toLowerCase();
+  return msg.includes("404") || msg.includes("not_found");
 }
 
-// ---------------- Real API (추후) ----------------
-export async function getProfile() {
-  if (USE_MOCK) return mockGetProfile();
-  return apiFetch<ProfileResponse>("/api/me", { method: "GET" });
+function mapGuardian(res: BackendProfileResponse): GuardianProfileDTO {
+  return {
+    userId: res.userId,
+    nickname: res.nickname,
+    genderCode: res.genderCode,
+    bio: res.bio,
+    avatarUrl: res.avatarUrl,
+    heartsCount: res.heartsCount ?? 0,
+    reviewCount: 0,
+    createdAt: res.createdAt,
+    updatedAt: res.updatedAt,
+  };
 }
 
-export async function upsertProfile(body: UpsertProfileRequest) {
-  if (USE_MOCK) return mockUpsertProfile(body);
-  return apiFetch<ProfileResponse>("/api/me/profile", {
-    method: "PUT",
-    body: JSON.stringify(body),
-  });
+function mapDog(res: BackendDogResponse): DogProfileDTO {
+  return {
+    id: res.dogId,
+    guardianUserId: res.guardianUserId ?? 0,
+    name: res.name,
+    breed: res.breed,
+    ageYears: res.ageYears,
+    genderCode: res.genderCode,
+    isNeutered: res.isNeutered,
+    vaccinationNote: res.vaccinationNote,
+    dispositionText: res.dispositionText,
+    photoUrl: res.photoUrl,
+    createdAt: res.createdAt ?? "",
+    updatedAt: res.updatedAt ?? "",
+  };
+}
+
+function mapGenderForBackend(code?: string | null) {
+  if (!code) return null;
+  const normalized = code.trim().toUpperCase();
+  if (normalized === "M" || normalized === "MALE") return "MALE";
+  if (normalized === "F" || normalized === "FEMALE") return "FEMALE";
+  if (normalized === "UNKNOWN" || normalized === "U") return "UNKNOWN";
+  return null;
+}
+
+export async function getProfile(): Promise<ProfileResponse> {
+  const auth = useAuthStore.getState();
+  const baseUser = {
+    id: auth.userId ?? 0,
+    phoneNumber: auth.phoneNumber ?? "",
+    createdAt: "",
+  };
+
+  let guardian: GuardianProfileDTO | null = null;
+  try {
+    const res = await apiFetch<BackendProfileResponse>(`${PROFILE_PATH}/me`, {
+      method: "GET",
+      auth: "required",
+    });
+    guardian = mapGuardian(res);
+  } catch (e) {
+    if (!isNotFoundError(e)) throw e;
+  }
+
+  let dogs: DogProfileDTO[] = [];
+  try {
+    const res = await apiFetch<BackendDogListResponse>(`${DOG_PATH}/me`, {
+      method: "GET",
+      auth: "required",
+    });
+    dogs = (res.items ?? []).map(mapDog);
+  } catch (e) {
+    if (!isNotFoundError(e)) throw e;
+  }
+
+  return {
+    user: baseUser,
+    guardianProfile: guardian,
+    neighborhood: null,
+    dogs,
+    profileExists: guardian != null,
+  };
+}
+
+type UpsertProfileMode = "auto" | "create" | "update";
+
+export async function upsertProfile(
+  body: UpsertProfileRequest,
+  opts: { mode?: UpsertProfileMode } = {},
+) {
+  const payload = {
+    nickname: body.nickname?.trim(),
+    genderCode: mapGenderForBackend(body.genderCode),
+    bio: body.bio ?? null,
+    avatarUrl: body.avatarUrl ?? null,
+  };
+
+  if (!payload.nickname) {
+    throw new Error("닉네임은 필수 항목입니다.");
+  }
+
+  const mode = opts.mode ?? "auto";
+
+  const doUpdate = () =>
+    apiFetch<BackendProfileResponse>(`${PROFILE_PATH}/me`, {
+      method: "PUT",
+      auth: "required",
+      body: JSON.stringify(payload),
+    });
+
+  const doCreate = () =>
+    apiFetch<BackendProfileResponse>(`${PROFILE_PATH}`, {
+      method: "POST",
+      auth: "required",
+      body: JSON.stringify(payload),
+    });
+
+  if (mode === "create") {
+    await doCreate();
+  } else if (mode === "update") {
+    await doUpdate();
+  } else {
+    try {
+      await doUpdate();
+    } catch (e) {
+      if (!isNotFoundError(e)) throw e;
+      await doCreate();
+    }
+  }
+
+  return getProfile();
 }
 
 export async function createDog(body: UpsertDogProfileRequest) {
-  if (USE_MOCK) return mockCreateDog(body);
-  return apiFetch<ProfileResponse>("/api/me/dogs", {
+  await apiFetch<BackendDogResponse>(`${DOG_PATH}`, {
     method: "POST",
-    body: JSON.stringify(body),
+    auth: "required",
+    body: JSON.stringify({
+      ...body,
+      breed: body.breed ?? null,
+      genderCode: body.genderCode ?? null,
+      vaccinationNote: body.vaccinationNote ?? null,
+      dispositionText: body.dispositionText ?? null,
+      photoUrl: body.photoUrl ?? null,
+    }),
   });
+  return getProfile();
 }
 
 export async function updateDog(dogId: number, body: UpsertDogProfileRequest) {
-  if (USE_MOCK) return mockUpdateDog(dogId, body);
-  return apiFetch<ProfileResponse>(`/api/me/dogs/${dogId}`, {
+  await apiFetch<BackendDogResponse>(`${DOG_PATH}/${dogId}`, {
     method: "PUT",
-    body: JSON.stringify(body),
+    auth: "required",
+    body: JSON.stringify({
+      ...body,
+      breed: body.breed ?? null,
+      genderCode: body.genderCode ?? null,
+      vaccinationNote: body.vaccinationNote ?? null,
+      dispositionText: body.dispositionText ?? null,
+      photoUrl: body.photoUrl ?? null,
+    }),
   });
+  return getProfile();
 }
 
 export async function deleteDog(dogId: number) {
-  if (USE_MOCK) return mockDeleteDog(dogId);
-  return apiFetch<ProfileResponse>(`/api/me/dogs/${dogId}`, {
+  await apiFetch(`${DOG_PATH}/${dogId}`, {
     method: "DELETE",
+    auth: "required",
   });
+  return getProfile();
 }

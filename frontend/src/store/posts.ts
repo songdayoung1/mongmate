@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import {
   listWalkPosts,
   type WalkPostStatus,
@@ -14,11 +14,12 @@ export type HomePost = {
   title: string;
   region: string;
   deadlineText: string;
+  deadlineAt: string | null;
   authorNickname: string;
-  content: string; // list에는 없어서 빈값일 수 있음
-  placeName?: string; // list에는 없어서 region로 대체
+  content: string;
+  placeName?: string;
   createdAt: string;
-  status: WalkPostStatus; // ✅ 중요: 상세/버튼에서 사용
+  status: WalkPostStatus;
 };
 
 type PostStore = {
@@ -38,7 +39,7 @@ function inferTypeAndTitle(
   return { type: serverType === "DOG_CAFE" ? "DOG_CAFE" : "WALK", title };
 }
 
-function deadlineText(deadlineAt: string | null) {
+function formatDeadlineText(deadlineAt: string | null) {
   if (!deadlineAt) return "마감일 미정";
   return deadlineAt;
 }
@@ -64,24 +65,23 @@ export const usePostStore = create<PostStore>((set) => ({
           title: fixed.title,
           region:
             it.region?.displayName ??
-            (it.region?.regionId ? `지역 #${it.region.regionId}` : "지역 미정"),
-          deadlineText: deadlineText(it.deadlineAt),
-          authorNickname: it.authorNickname ?? "알 수 없음",
-          content: "", // 상세에서 보강
+            (it.region?.regionId ? `지역 #${it.region.regionId}` : "지역 정보 없음"),
+          deadlineText: formatDeadlineText(it.deadlineAt ?? null),
+          deadlineAt: it.deadlineAt ?? null,
+          authorNickname: it.authorNickname ?? "익명",
+          content: "",
           createdAt: it.createdAt,
           status: it.status,
         };
       });
 
-      // ✅ 최신순 정렬
       mapped.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
       set({ posts: mapped, isLoading: false });
     } catch (e: any) {
-      set({ isLoading: false, error: e?.message ?? "게시글 조회 실패" });
+      set({ isLoading: false, error: e?.message ?? "모집글 목록을 불러오지 못했습니다." });
     }
   },
 }));

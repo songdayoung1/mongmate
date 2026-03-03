@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import type { AuthState } from "../../store/auth";
 import AnimatedButton from "../../components/AnimatedButton";
 import { COLORS, SIZES, SHADOWS } from "../../constants/theme";
 
-// ✅ 개발모드에서는 문자 인증 우회
+// 개발용: 문자 인증을 우회할 때 사용
 const SMS_BYPASS = __DEV__;
 const BYPASS_CODE = "000000";
 
@@ -86,18 +86,18 @@ export default function AuthOtpScreen() {
 
   const handleRequestOtp = async () => {
     if (!validPhone) {
-      Alert.alert("확인", "올바른 휴대폰 번호를 입력해주세요.");
+      Alert.alert("확인", "휴대폰 번호를 입력해주세요.");
       return;
     }
 
     try {
       if (!SMS_BYPASS) {
         await sendSmsCode(cleanPhone);
-        Alert.alert("알림", "인증번호를 발송했어요.");
+        Alert.alert("안내", "인증번호를 전송했어요.");
       } else {
         Alert.alert(
           "개발 모드",
-          `문자 인증 우회 중입니다. (코드: ${BYPASS_CODE})`,
+          `문자 인증을 우회 중입니다. (코드: ${BYPASS_CODE})`,
         );
       }
 
@@ -107,15 +107,15 @@ export default function AuthOtpScreen() {
       setIsRunning(true);
     } catch (e: any) {
       Alert.alert(
-        "에러",
-        e?.message ?? "인증번호 요청 중 문제가 발생했습니다.",
+        "오류",
+        e?.message ?? "인증번호 요청 중 문제가 발생했어요.",
       );
     }
   };
 
   const handleVerify = async () => {
     if (!validPhone) {
-      Alert.alert("확인", "올바른 휴대폰 번호를 입력해주세요.");
+      Alert.alert("확인", "휴대폰 번호를 입력해주세요.");
       return;
     }
 
@@ -136,13 +136,13 @@ export default function AuthOtpScreen() {
         : (await verifySmsCode(cleanPhone, code)).success;
 
       if (!verified) {
-        Alert.alert("실패", "인증번호가 올바르지 않습니다.");
+        Alert.alert("실패", "인증번호가 일치하지 않습니다.");
         return;
       }
 
       if (mode === "signup") {
         if (!name || !birth || !idDigit) {
-          Alert.alert("에러", "회원가입 정보가 누락되었습니다.");
+          Alert.alert("오류", "회원가입 정보가 올바르지 않습니다.");
           return;
         }
 
@@ -162,12 +162,10 @@ export default function AuthOtpScreen() {
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
         });
-
-        navigation.navigate("Main");
         return;
       }
 
-      // login 모드
+      // login mode
       const res = await login(cleanPhone);
 
       await setSession({
@@ -176,10 +174,8 @@ export default function AuthOtpScreen() {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
       });
-
-      navigation.navigate("Main");
     } catch (e: any) {
-      Alert.alert("에러", e?.message ?? "인증 처리 중 문제가 발생했습니다.");
+      Alert.alert("오류", e?.message ?? "인증 처리 중 문제가 발생했습니다.");
     }
   };
 
@@ -189,7 +185,7 @@ export default function AuthOtpScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
       <TopHeader
-        title={mode === "signup" ? "휴대폰 인증" : "로그인"}
+        title={mode === "signup" ? "회원가입 인증" : "로그인"}
         showBack
       />
 
@@ -256,7 +252,7 @@ export default function AuthOtpScreen() {
           onPress={handleVerify}
         >
           <Text style={styles.verifyText}>
-            {mode === "signup" ? "가입 완료하기" : "로그인"}
+            {mode === "signup" ? "회원가입 완료하기" : "로그인"}
           </Text>
         </AnimatedButton>
       </View>
@@ -298,7 +294,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMain,
     ...Platform.select({
       ios: SHADOWS.soft,
-      android: { elevation: 1 }
+      android: { elevation: 1 },
     }),
   },
   requestButton: {

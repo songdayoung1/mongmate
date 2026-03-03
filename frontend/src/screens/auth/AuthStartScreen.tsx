@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -27,20 +27,18 @@ export default function AuthStartScreen() {
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
       });
-
-      navigation.navigate("Main");
     } catch (e: any) {
-      Alert.alert("개발 로그인 실패", e?.message ?? "로그인 실패");
+      Alert.alert("개발자 로그인 실패", e?.message ?? "로그인에 실패했습니다.");
     }
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <TopHeader title="멍메이트" showBack={false} />
+      <TopHeader title="몽메이트" showBack={false} />
       <View style={styles.content}>
-        <Text style={styles.title}>시작해볼까요?</Text>
+        <Text style={styles.title}>몽메이트를 시작해볼까요?</Text>
         <Text style={styles.subtitle}>
-          휴대폰 번호로 간편하게 회원가입 / 로그인 할 수 있어요.
+          휴대폰 번호만 있으면 간편하게 회원가입과 로그인이 가능해요.
         </Text>
 
         <TouchableOpacity
@@ -48,7 +46,7 @@ export default function AuthStartScreen() {
           activeOpacity={0.9}
           onPress={() => navigation.navigate("SignupInfo")}
         >
-          <Text style={styles.primaryText}>회원가입</Text>
+          <Text style={styles.primaryText}>회원가입 진행</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -58,17 +56,17 @@ export default function AuthStartScreen() {
             navigation.navigate("AuthOtp", { mode: "login", phoneNumber: "" })
           }
         >
-          <Text style={styles.secondaryText}>이미 계정이 있어요 · 로그인</Text>
+          <Text style={styles.secondaryText}>휴대폰 번호로 로그인</Text>
         </TouchableOpacity>
 
-        {/* ✅ 개발모드 전용: 문자 없이 바로 토큰 발급 */}
+        {/* 개발 편의를 위한 우회 로그인 */}
         {__DEV__ && (
           <TouchableOpacity
             style={styles.dev}
             activeOpacity={0.9}
             onPress={onDevLogin}
           >
-            <Text style={styles.devText}>개발 로그인 · {DEV_PHONE}</Text>
+            <Text style={styles.devText}>개발자 로그인 · {DEV_PHONE}</Text>
           </TouchableOpacity>
         )}
       </View>

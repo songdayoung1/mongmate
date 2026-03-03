@@ -25,6 +25,25 @@ export type WalkPostListResponse = {
   items: WalkPostListItem[];
 };
 
+export type MyWalkPostStatus = "ACTIVE" | "CLOSED";
+
+export type MyWalkPostListItem = {
+  postId: number;
+  status: MyWalkPostStatus | string;
+  title: string;
+  regionText: string | null;
+  deadlineText: string | null;
+  createdAt: string;
+};
+
+export type MyWalkPostListResponse = {
+  items: MyWalkPostListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
 export type WalkPostDetailResponse = {
   postId: number;
   recruitType?: WalkRecruitType;
@@ -43,19 +62,37 @@ export type WalkPostDetailResponse = {
 export type ListWalkPostsParams = {
   page?: number;
   size?: number;
+  regionId?: number;
+  status?: WalkPostStatus;
+  recruitType?: WalkRecruitType;
 };
 
 export type WalkPostCreateRequest = {
   title: string;
   content: string;
   regionId: number;
-  deadlineAt?: string | null; // ✅ "2026-02-13T18:00:00"
+  deadlineAt?: string | null; // ??"2026-02-13T18:00:00"
   meetAddress?: string | null;
   meetLat?: number | null;
   meetLng?: number | null;
 };
 
 export type WalkPostCreateResponse = { postId: number };
+export type WalkPostUpdateRequest = {
+  title: string;
+  content: string;
+  deadlineAt?: string | null;
+  meetAddress?: string | null;
+  meetLat?: number | null;
+  meetLng?: number | null;
+};
+
+export type ListMyWalkPostsParams = {
+  page?: number;
+  size?: number;
+  status?: MyWalkPostStatus;
+};
+
 
 function toQuery(params: Record<string, any>) {
   const q = new URLSearchParams();
@@ -107,3 +144,34 @@ export async function createWalkPost(req: WalkPostCreateRequest) {
     }),
   });
 }
+
+/** GET /api/walk-posts/my */
+export async function listMyWalkPosts(params: ListMyWalkPostsParams = {}) {
+  return apiFetch<MyWalkPostListResponse>(
+    `/api/walk-posts/my${toQuery(params)}`,
+    {
+      method: "GET",
+      auth: "required",
+    },
+  );
+}
+
+/** PUT /api/walk-posts/{postId} */
+export async function updateWalkPost(
+  postId: string | number,
+  req: WalkPostUpdateRequest,
+) {
+  return apiFetch<WalkPostDetailResponse>(`/api/walk-posts/${postId}`, {
+    method: "PUT",
+    auth: "required",
+    body: JSON.stringify({
+      title: req.title,
+      content: req.content,
+      deadlineAt: req.deadlineAt ?? null,
+      meetAddress: req.meetAddress ?? null,
+      meetLat: req.meetLat ?? null,
+      meetLng: req.meetLng ?? null,
+    }),
+  });
+}
+
